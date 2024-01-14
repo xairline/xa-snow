@@ -1,0 +1,54 @@
+name: Release
+
+# Controls when the workflow will run
+on:
+  push:
+    #    branches: [ main ]
+    tags:
+      - 'v*'
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: macos-13
+    defaults:
+      run:
+        working-directory: apps/core
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '^1.18' # The Go version to download (if necessary) and use.
+      - run: brew install FiloSottile/musl-cross/musl-cross
+      - run: brew install mingw-w64
+      - uses: actions/cache@v2
+        with:
+          path: ~/go/pkg/mod
+          key: go-mod-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            go-mod-
+      - run: |
+          go mod tidy
+          make all -j 3
+          rm -f ${{ github.workspace }}/build/XA-snow/mac_arm.xpl ${{ github.workspace }}/build/XA-snow/mac_amd.xpl
+          root=$(pwd)
+          cd ${{ github.workspace }}/build/ && zip -r xa-snow.zip XA-snow && cd $root
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          body_path: ${{ github.workspace }}/README.md
+          files: |
+            ${{ github.workspace }}/build/xa-snow.zip
+          prerelease: false
