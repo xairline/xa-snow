@@ -3,7 +3,6 @@ module github.com/xairline/xa-snow
 go 1.18
 
 require (
-	github.com/gin-gonic/gin v1.8.2
 	github.com/xairline/goplane v1.301.5
 )
 
@@ -21,7 +20,6 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.6 // indirect
 	github.com/ugorji/go/codec v1.2.7 // indirect
-	golang.org/x/crypto v0.14.0 // indirect
 	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/sys v0.13.0 // indirect
 	golang.org/x/text v0.13.0 // indirect

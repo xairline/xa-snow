@@ -27,8 +27,6 @@ type xplaneService struct {
 var xplaneSvcLock = &sync.Mutex{}
 var xplaneSvc XplaneService
 
-var commands = []string{}
-
 func NewXplaneService(
 	datarefSvc DatarefService,
 	logger logger.Logger,
@@ -72,6 +70,11 @@ func (s xplaneService) onPluginStop() {
 	s.Logger.Info("Plugin stopped")
 }
 
-func (s xplaneService) flightLoop(elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop float32, counter int, ref interface{}) float32 {
+func (s xplaneService) flightLoop(
+	elapsedSinceLastCall,
+	elapsedTimeSinceLastFlightLoop float32,
+	counter int,
+	ref interface{},
+) float32 {
 	return 0.2
 }
