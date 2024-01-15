@@ -143,19 +143,19 @@ func (g *gribService) downloadGribFile() error {
 
 func (g *gribService) gribSnodToXplaneSnod(depth float64) float32 {
 	if depth > 0.3 {
-		return 0.3
+		return 0.1
 	}
 	if depth > 0.1 {
-		return 0.5
+		return 0.2
 	}
 	if depth > 0.05 {
-		return 0.6
+		return 0.3
 	}
 	if depth > 0.03 {
-		return 0.7
+		return 0.35
 	}
 	if depth > 0.01 {
-		return 0.8
+		return 0.4
 	}
 	if depth > 0.0 {
 		return 0.9
