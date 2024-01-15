@@ -11,6 +11,7 @@ import (
 	"github.com/xairline/goplane/xplm/utilities"
 	"github.com/xairline/xa-snow/utils/logger"
 	"path/filepath"
+	"runtime"
 	"sync"
 )
 
@@ -28,6 +29,7 @@ type xplaneService struct {
 	gribService     GribService
 	datarefPointers map[string]dataAccess.DataRef
 	Logger          logger.Logger
+	lastSnowDepth   float32
 }
 
 var xplaneSvcLock = &sync.Mutex{}
@@ -43,12 +45,13 @@ func NewXplaneService(
 		logger.Info("Xplane SVC: initializing")
 		xplaneSvcLock.Lock()
 		defer xplaneSvcLock.Unlock()
-		xplaneSvc := xplaneService{
+		xplaneSvc := &xplaneService{
 			Plugin: extra.NewPlugin("X Airline Snow", "com.github.xairline.xa-snow", "A plugin enables Frontend developer to contribute to xplane"),
 			gribService: NewGribService(logger,
 				utilities.GetSystemPath(),
 				filepath.Join(utilities.GetSystemPath(), "Resources", "plugins", "XA-snow", "bin")),
-			Logger: logger,
+			Logger:        logger,
+			lastSnowDepth: -1,
 		}
 		xplaneSvc.Plugin.SetPluginStateCallback(xplaneSvc.onPluginStateChanged)
 		return xplaneSvc
@@ -72,6 +75,8 @@ func (s xplaneService) onPluginStart() {
 	s.Logger.Info("Plugin started")
 	s.datarefPointers = make(map[string]dataAccess.DataRef)
 
+	runtime.GOMAXPROCS(runtime.NumCPU())
+
 	lat, success := dataAccess.FindDataRef("sim/flightmodel/position/latitude")
 	if !success {
 		s.Logger.Error("Dataref not found")
@@ -91,13 +96,14 @@ func (s xplaneService) onPluginStop() {
 	s.Logger.Info("Plugin stopped")
 }
 
-func (s xplaneService) flightLoop(
+func (s *xplaneService) flightLoop(
 	elapsedSinceLastCall,
 	elapsedTimeSinceLastFlightLoop float32,
 	counter int,
 	ref interface{},
 ) float32 {
-
+	//var ret float32
+	//ret = 180.0
 	if s.datarefPointers["snow"] == nil {
 		override, success := dataAccess.FindDataRef("sim/private/controls/twxr/override")
 		if !success {
@@ -112,17 +118,22 @@ func (s xplaneService) flightLoop(
 		s.datarefPointers["snow"] = snow
 	}
 
-	dataAccess.SetFloatData(s.datarefPointers["override"], 1)
-	s.Logger.Info("Dataref set, start hacking ... ")
-
 	lat := dataAccess.GetFloatData(s.datarefPointers["lat"])
 	lon := dataAccess.GetFloatData(s.datarefPointers["lon"])
 	s.Logger.Infof("Dataref get, lat: %f, lon: %f", lat, lon)
 
 	snowDepth := s.gribService.GetCalculatedSnowDepth()
-	//get random number between 0 and 1
-	dataAccess.SetFloatData(s.datarefPointers["snow"], snowDepth)
-	s.Logger.Infof("Dataref set, ground snow level: %f*", snowDepth)
+	if int32(snowDepth*100) != int32(s.lastSnowDepth*100) {
+		s.Logger.Infof("Snow depth changed, %f -> %f", s.lastSnowDepth, snowDepth)
+
+		dataAccess.SetFloatData(s.datarefPointers["override"], 1)
+		s.Logger.Info("Dataref set, start hacking ... ")
+
+		dataAccess.SetFloatData(s.datarefPointers["snow"], snowDepth)
+		s.Logger.Infof("Dataref set, ground snow level: %f*", snowDepth)
+	} else {
+		s.Logger.Infof("Snow depth not changed, %f -> %f", s.lastSnowDepth, snowDepth)
+	}
 
 	go func() {
 		// get snow depth from grib file
@@ -132,5 +143,10 @@ func (s xplaneService) flightLoop(
 		}
 	}()
 
-	return 5
+	s.lastSnowDepth = snowDepth
+	//if s.lastSnowDepth < 0 {
+	//	ret = 5
+	//}
+	//return ret
+	return 91
 }
