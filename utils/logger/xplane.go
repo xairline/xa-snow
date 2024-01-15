@@ -5,7 +5,6 @@ import (
 )
 
 type XplaneLogger struct {
-	genericLogger GenericLogger
 }
 
 func (x XplaneLogger) Infof(format string, a ...interface{}) {

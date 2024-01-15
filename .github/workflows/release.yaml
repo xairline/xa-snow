@@ -41,6 +41,7 @@ jobs:
           go mod tidy
           make all -j 3
           rm -f ${{ github.workspace }}/build/XA-snow/mac_arm.xpl ${{ github.workspace }}/build/XA-snow/mac_amd.xpl
+          cp -r bin ${{ github.workspace }}/build/XA-snow/
           root=$(pwd)
           cd ${{ github.workspace }}/build/ && zip -r xa-snow.zip XA-snow && cd $root
 

@@ -1,3 +1,5 @@
+//go:build !test
+
 package main
 
 import (
@@ -24,10 +26,8 @@ func init() {
 	pluginPath := filepath.Join(systemPath, "Resources", "plugins", "XA-snow")
 	xplaneLogger.Infof("Plugin path: %s", pluginPath)
 
-	datarefSvc := services.NewDatarefService(xplaneLogger)
 	// entrypoint
 	services.NewXplaneService(
-		datarefSvc,
 		xplaneLogger,
 	)
 }
