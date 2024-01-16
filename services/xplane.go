@@ -102,8 +102,6 @@ func (s *xplaneService) flightLoop(
 	counter int,
 	ref interface{},
 ) float32 {
-	//var ret float32
-	//ret = 180.0
 	if s.datarefPointers["snow"] == nil {
 		override, success := dataAccess.FindDataRef("sim/private/controls/twxr/override")
 		if !success {
@@ -122,6 +120,10 @@ func (s *xplaneService) flightLoop(
 	lon := dataAccess.GetFloatData(s.datarefPointers["lon"])
 	s.Logger.Infof("Dataref get, lat: %f, lon: %f", lat, lon)
 
+	err := s.gribService.GetXplaneSnowDepth(lat, lon)
+	if err != nil {
+		s.Logger.Errorf("Error getting snow depth: %v", err)
+	}
 	snowDepth := s.gribService.GetCalculatedSnowDepth()
 	if int32(snowDepth*100) != int32(s.lastSnowDepth*100) {
 		s.Logger.Infof("Snow depth changed, %f -> %f", s.lastSnowDepth, snowDepth)
@@ -135,18 +137,6 @@ func (s *xplaneService) flightLoop(
 		s.Logger.Infof("Snow depth not changed, %f -> %f", s.lastSnowDepth, snowDepth)
 	}
 
-	go func() {
-		// get snow depth from grib file
-		err := s.gribService.GetXplaneSnowDepth(lat, lon)
-		if err != nil {
-			s.Logger.Errorf("Error getting snow depth: %v", err)
-		}
-	}()
-
 	s.lastSnowDepth = snowDepth
-	//if s.lastSnowDepth < 0 {
-	//	ret = 5
-	//}
-	//return ret
-	return 91
+	return 5
 }
