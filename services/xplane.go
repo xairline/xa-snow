@@ -118,7 +118,6 @@ func (s *xplaneService) flightLoop(
 
 	lat := dataAccess.GetFloatData(s.datarefPointers["lat"])
 	lon := dataAccess.GetFloatData(s.datarefPointers["lon"])
-	s.Logger.Infof("Dataref get, lat: %f, lon: %f", lat, lon)
 
 	err := s.gribService.GetXplaneSnowDepth(lat, lon)
 	if err != nil {
@@ -126,6 +125,7 @@ func (s *xplaneService) flightLoop(
 	}
 	snowDepth := s.gribService.GetCalculatedSnowDepth()
 	if int32(snowDepth*100) != int32(s.lastSnowDepth*100) {
+		s.Logger.Infof("Dataref get, lat: %f, lon: %f", lat, lon)
 		s.Logger.Infof("Snow depth changed, %f -> %f", s.lastSnowDepth, snowDepth)
 
 		dataAccess.SetFloatData(s.datarefPointers["override"], 1)
@@ -133,8 +133,6 @@ func (s *xplaneService) flightLoop(
 
 		dataAccess.SetFloatData(s.datarefPointers["snow"], snowDepth)
 		s.Logger.Infof("Dataref set, ground snow level: %f*", snowDepth)
-	} else {
-		s.Logger.Infof("Snow depth not changed, %f -> %f", s.lastSnowDepth, snowDepth)
 	}
 
 	s.lastSnowDepth = snowDepth
