@@ -49,13 +49,22 @@ func (g *gribService) GetXplaneSnowDepth(lat, lon float32) error {
 		g.Logger.Info("Snow depth map not created yet")
 		return nil
 	}
-	iLat := int(math.Round(float64(lat + 90)))
+	iLat := int(math.Round(float64(lat+90) * 10))
 	if lon < 0 {
 		lon = lon + 360
 	}
-	iLon := int(math.Round(float64(lon)))
+	iLon := int(math.Round(float64(lon) * 10))
 
-	g.SnowDepth = g.gribSnodToXplaneSnod(g.SnowDepthMap[iLon][iLat])
+	g.SnowDepth = g.gribSnodToXplaneSnod(float32(math.Abs(float64(g.SnowDepthMap[iLon][iLat]))))
+	if g.SnowDepth > 1.19 {
+		if iLon-1 >= 0 && iLon+1 < 360 {
+			g.SnowDepth = g.gribSnodToXplaneSnod(float32(math.Max(math.Abs(float64(g.SnowDepthMap[iLon-1][iLat])), math.Abs(float64(g.SnowDepthMap[iLon+1][iLat])))))
+		} else if iLon-1 < 0 {
+			g.SnowDepth = g.gribSnodToXplaneSnod(float32(math.Max(math.Abs(float64(g.SnowDepthMap[iLon+3599][iLat])), math.Abs(float64(g.SnowDepthMap[iLon+1][iLat])))))
+		} else if iLon+1 > 3599 {
+			g.SnowDepth = g.gribSnodToXplaneSnod(float32(math.Max(math.Abs(float64(g.SnowDepthMap[iLon-1][iLat])), math.Abs(float64(g.SnowDepthMap[iLon-3599][iLat])))))
+		}
+	}
 	//g.Logger.Infof("Snow depth: %f,lon:%d,lat:%d", g.SnowDepthMap[iLon][iLat], iLon, iLat)
 	return nil
 }
@@ -112,7 +121,7 @@ func (g *gribService) downloadGribFile() error {
 	if myOs == "darwin" {
 		executablePath = filepath.Join(g.binPath, "OSX11wgrib2")
 	}
-	cmd := exec.Command(executablePath, "-s", "-lola", "0:720:1", "-90:360:1", "snod.csv", "spread", g.gribFilePath)
+	cmd := exec.Command(executablePath, "-s", "-lola", "0:3600:0.1", "-90:1800:0.1", "snod.csv", "spread", g.gribFilePath)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		g.Logger.Errorf("Error getting snow depth: %v,%s", err, string(output))
@@ -128,8 +137,8 @@ func (g *gribService) downloadGribFile() error {
 	// Create a new CSV reader
 	reader := csv.NewReader(file)
 
-	for i := 0; i < 360; i++ {
-		g.SnowDepthMap[i] = make([]float32, 181)
+	for i := 0; i < 3600; i++ {
+		g.SnowDepthMap[i] = make([]float32, 1801)
 	}
 
 	counter := 0
@@ -155,8 +164,8 @@ func (g *gribService) downloadGribFile() error {
 
 		// Convert longitude and latitude to array indices
 		// This example assumes the CSV contains all longitudes and latitudes
-		x := int(lon)      // Adjust these calculations based on your data's range and resolution
-		y := int(lat + 90) // Adjust for negative latitudes
+		x := int(lon * 10)        // Adjust these calculations based on your data's range and resolution
+		y := int((lat + 90) * 10) // Adjust for negative latitudes
 
 		// Store the value
 		g.SnowDepthMap[x][y] = value
@@ -165,6 +174,8 @@ func (g *gribService) downloadGribFile() error {
 	g.SnowDepthMapCreated = true
 	g.Logger.Infof("Snow depth map size: %d", counter)
 	g.Logger.Info("Pre-processing GRIB file: Done")
+
+	g.smoothSnowDepthMap()
 
 	//Remove old .grib files
 	filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
@@ -189,25 +200,80 @@ func (g *gribService) downloadGribFile() error {
 }
 
 func (g *gribService) gribSnodToXplaneSnod(depth float32) float32 {
-	if depth > 0.3 {
-		return 0.1
+	ret := 1.2
+	if depth > 0.001 {
+		ret = math.Max(1.05-(1.127*math.Pow(float64(depth), 0.142)), 0.01)
 	}
-	if depth > 0.1 {
-		return 0.2
+	return float32(ret)
+}
+
+func (g *gribService) smoothSnowDepthMap() {
+	smoothedCounter := 0
+	// number of boxes to smooth east or west
+	smoothFactor := 20
+	smoothGapMin := 3
+	for i := 0; i < 1801; i++ {
+		waterCounter := 0
+		for j := 0; j < 3600; j++ {
+			// count how many no-snow boxes we have so far
+			if g.SnowDepthMap[j][i] <= 0.001 && g.SnowDepthMap[j][i] >= -0.001 {
+				// if a box is missing but it's east and wst boxes are not, we fill it with the average of the two
+				if j-1 >= 0 && j+1 < 3600 {
+					if g.SnowDepthMap[j-1][i] > 0.001 && g.SnowDepthMap[j+1][i] > 0.001 {
+						g.SnowDepthMap[j][i] = (g.SnowDepthMap[j-1][i] + g.SnowDepthMap[j+1][i]) / 2.0
+					} else {
+						waterCounter++
+						continue
+					}
+				} else {
+					waterCounter++
+					continue
+				}
+			}
+			if g.SnowDepthMap[j][i] > 0.001 {
+
+				// we now find snow, if we have more than 10 no-snow boxes, we smooth the snow
+				if waterCounter >= smoothGapMin {
+					// smooth the snow
+					for k := 1; k <= smoothFactor; k++ {
+						x := j - k
+						if x < 0 {
+							x = 3599 + x
+						}
+						g.SnowDepthMap[x][i] = -1.0 * (float32(smoothFactor-k) * g.SnowDepthMap[j][i] / float32(smoothFactor))
+					}
+					smoothedCounter += 1
+					j += smoothFactor
+				}
+				waterCounter = 0
+			}
+		}
+		waterCounter = 0
+		for j := 3599; j >= 0; j-- {
+			// count how many no-snow boxes we have so far
+			if g.SnowDepthMap[j][i] <= 0.001 && g.SnowDepthMap[j][i] >= -0.001 {
+				waterCounter++
+				continue
+			}
+			if g.SnowDepthMap[j][i] > 0.001 {
+				// we now find snow, if we have more than 10 no-snow boxes, we smooth the snow
+				if waterCounter >= smoothGapMin {
+					// smooth the snow
+					for k := 1; k <= smoothFactor; k++ {
+						x := j + k
+						if x > 3599 {
+							x = x - 3599
+						}
+						g.SnowDepthMap[x][i] = -1.0 * (float32(smoothFactor-k) * g.SnowDepthMap[j][i] / float32(smoothFactor))
+					}
+					smoothedCounter += 1
+					waterCounter = 0
+					j -= smoothFactor
+				}
+			}
+		}
 	}
-	if depth > 0.05 {
-		return 0.3
-	}
-	if depth > 0.03 {
-		return 0.35
-	}
-	if depth > 0.01 {
-		return 0.4
-	}
-	if depth > 0.0 {
-		return 0.9
-	}
-	return 1.2
+	g.Logger.Infof("Smoothed %d boxes of %f east/west", smoothedCounter, float32(smoothFactor)*0.1)
 }
 
 func NewGribService(logger logger.Logger, dir string, binPath string) GribService {
@@ -227,7 +293,7 @@ func NewGribService(logger logger.Logger, dir string, binPath string) GribServic
 			gribFilePath:        "",
 			binPath:             binPath,
 			SnowDepth:           -1.0,
-			SnowDepthMap:        make([][]float32, 360),
+			SnowDepthMap:        make([][]float32, 3600),
 			SnowDepthMapCreated: false,
 		}
 
@@ -267,7 +333,7 @@ func getCycleDate() (string, int, int) {
 
 func getDownloadUrl() string {
 	cycleDate, cycle, forecast := getCycleDate()
-	filename := fmt.Sprintf("gfs.t%02dz.pgrb2full.0p50.f0%02d", cycle, forecast)
-	return fmt.Sprintf("https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p50.pl?dir=%%2Fgfs.%s%%2F%02d%%2Fatmos&file=%s&var_SNOD=on&all_lev=on", cycleDate, cycle, filename)
+	filename := fmt.Sprintf("gfs.t%02dz.pgrb2.0p25.f0%02d", cycle, forecast)
+	return fmt.Sprintf("https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?dir=%%2Fgfs.%s%%2F%02d%%2Fatmos&file=%s&var_SNOD=on&all_lev=on", cycleDate, cycle, filename)
 	//return fmt.Sprintf("https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gfs.%s/%02d/atmos/%s", cycleDate, cycle, filename)
 }
