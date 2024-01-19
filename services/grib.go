@@ -220,7 +220,7 @@ func (g *gribService) smoothSnowDepthMap() {
 				// if a box is missing but it's east and wst boxes are not, we fill it with the average of the two
 				if j-1 >= 0 && j+1 < 3600 {
 					if g.SnowDepthMap[j-1][i] > 0.001 && g.SnowDepthMap[j+1][i] > 0.001 {
-						g.SnowDepthMap[j][i] = (g.SnowDepthMap[j-1][i] + g.SnowDepthMap[j+1][i]) / 2.0
+						g.SnowDepthMap[j][i] = -1 * (g.SnowDepthMap[j-1][i] + g.SnowDepthMap[j+1][i]) / 2.0
 					} else {
 						waterCounter++
 						continue
@@ -240,7 +240,12 @@ func (g *gribService) smoothSnowDepthMap() {
 						if x < 0 {
 							x = 3599 + x
 						}
-						g.SnowDepthMap[x][i] = -1.0 * (float32(smoothFactor-k) * g.SnowDepthMap[j][i] / float32(smoothFactor))
+						// only smooth it when it's not already smoothed or has snow
+						if g.SnowDepthMap[x][i] < 0.001 && g.SnowDepthMap[x][i] > -0.001 {
+							g.SnowDepthMap[x][i] = -1.0 * float32(math.Max(float64(float32(smoothFactor-k)*g.SnowDepthMap[j][i]/float32(smoothFactor)), 0.0))
+						} else {
+							break
+						}
 					}
 					smoothedCounter += 1
 					j += smoothFactor
@@ -264,7 +269,12 @@ func (g *gribService) smoothSnowDepthMap() {
 						if x > 3599 {
 							x = x - 3599
 						}
-						g.SnowDepthMap[x][i] = -1.0 * (float32(smoothFactor-k) * g.SnowDepthMap[j][i] / float32(smoothFactor))
+						// only smooth it when it's not already smoothed or has snow
+						if g.SnowDepthMap[x][i] < 0.001 && g.SnowDepthMap[x][i] > -0.001 {
+							g.SnowDepthMap[x][i] = -1.0 * float32(math.Max(float64(float32(smoothFactor-k)*g.SnowDepthMap[j][i]/float32(smoothFactor)), 0.0))
+						} else {
+							break
+						}
 					}
 					smoothedCounter += 1
 					waterCounter = 0
