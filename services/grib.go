@@ -122,9 +122,8 @@ func (g *gribService) downloadGribFile() error {
 		executablePath = filepath.Join(g.binPath, "OSX11wgrib2")
 	}
 	cmd := exec.Command(executablePath, "-s", "-lola", "0:3600:0.1", "-90:1800:0.1", "snod.csv", "spread", g.gribFilePath)
-	output, err := cmd.CombinedOutput()
+	err := g.exec(cmd)
 	if err != nil {
-		g.Logger.Errorf("Error getting snow depth: %v,%s", err, string(output))
 		return err
 	}
 
