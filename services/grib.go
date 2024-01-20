@@ -54,6 +54,9 @@ func (g *gribService) GetXplaneSnowDepth(lat, lon float32) error {
 		lon = lon + 360
 	}
 	iLon := int(math.Round(float64(lon) * 10))
+	if iLon == 3600 {
+		iLon = 0
+	}
 
 	g.SnowDepth = g.gribSnodToXplaneSnod(float32(math.Abs(float64(g.SnowDepthMap[iLon][iLat]))))
 	if g.SnowDepth > 1.19 {
