@@ -29,7 +29,7 @@ type xplaneService struct {
 	gribService     GribService
 	datarefPointers map[string]dataAccess.DataRef
 	Logger          logger.Logger
-	lastSnowDepth   float32
+	disabled        bool
 }
 
 var xplaneSvcLock = &sync.Mutex{}
@@ -50,15 +50,15 @@ func NewXplaneService(
 			gribService: NewGribService(logger,
 				utilities.GetSystemPath(),
 				filepath.Join(utilities.GetSystemPath(), "Resources", "plugins", "XA-snow", "bin")),
-			Logger:        logger,
-			lastSnowDepth: -1,
+			Logger:   logger,
+			disabled: false,
 		}
 		xplaneSvc.Plugin.SetPluginStateCallback(xplaneSvc.onPluginStateChanged)
 		return xplaneSvc
 	}
 }
 
-func (s xplaneService) onPluginStateChanged(state extra.PluginState, plugin *extra.XPlanePlugin) {
+func (s *xplaneService) onPluginStateChanged(state extra.PluginState, plugin *extra.XPlanePlugin) {
 	switch state {
 	case extra.PluginStart:
 		s.onPluginStart()
@@ -67,11 +67,12 @@ func (s xplaneService) onPluginStateChanged(state extra.PluginState, plugin *ext
 	case extra.PluginEnable:
 		s.Logger.Infof("Plugin: %s enabled", plugin.GetName())
 	case extra.PluginDisable:
+		s.disabled = true
 		s.Logger.Infof("Plugin: %s disabled", plugin.GetName())
 	}
 }
 
-func (s xplaneService) onPluginStart() {
+func (s *xplaneService) onPluginStart() {
 	s.Logger.Info("Plugin started")
 	s.datarefPointers = make(map[string]dataAccess.DataRef)
 
@@ -92,7 +93,7 @@ func (s xplaneService) onPluginStart() {
 	processing.RegisterFlightLoopCallback(s.flightLoop, -1, nil)
 }
 
-func (s xplaneService) onPluginStop() {
+func (s *xplaneService) onPluginStop() {
 	s.Logger.Info("Plugin stopped")
 }
 
@@ -103,17 +104,27 @@ func (s *xplaneService) flightLoop(
 	ref interface{},
 ) float32 {
 	if s.datarefPointers["snow"] == nil {
-		override, success := dataAccess.FindDataRef("sim/private/controls/twxr/override")
-		if !success {
-			s.Logger.Error("Dataref not found")
-		}
-		s.datarefPointers["override"] = override
-
 		snow, success := dataAccess.FindDataRef("sim/private/controls/wxr/snow_now")
 		if !success {
 			s.Logger.Error("Dataref not found")
 		}
 		s.datarefPointers["snow"] = snow
+
+		weatherMode, success := dataAccess.FindDataRef("sim/weather/region/weather_source")
+		if !success {
+			s.Logger.Error("Dataref not found")
+		}
+		s.datarefPointers["weatherMode"] = weatherMode
+	}
+
+	weatherMode := dataAccess.GetIntData(s.datarefPointers["weatherMode"])
+	if weatherMode != 1 {
+		// weather mode is not RW, we don't do anything to avoid snow on people's summer view
+		return -1
+	}
+	if s.disabled {
+		// TODO: cleanup go routines
+		return 0
 	}
 
 	lat := dataAccess.GetFloatData(s.datarefPointers["lat"])
@@ -124,17 +135,8 @@ func (s *xplaneService) flightLoop(
 		s.Logger.Errorf("Error getting snow depth: %v", err)
 	}
 	snowDepth := s.gribService.GetCalculatedSnowDepth()
-	if int32(snowDepth*100) != int32(s.lastSnowDepth*100) {
-		s.Logger.Infof("Dataref get, lat: %f, lon: %f", lat, lon)
-		s.Logger.Infof("Snow depth changed, %f -> %f", s.lastSnowDepth, snowDepth)
 
-		dataAccess.SetFloatData(s.datarefPointers["override"], 1)
-		s.Logger.Info("Dataref set, start hacking ... ")
+	dataAccess.SetFloatData(s.datarefPointers["snow"], snowDepth)
 
-		dataAccess.SetFloatData(s.datarefPointers["snow"], snowDepth)
-		s.Logger.Infof("Dataref set, ground snow level: %f*", snowDepth)
-	}
-
-	s.lastSnowDepth = snowDepth
-	return 5
+	return -1
 }
