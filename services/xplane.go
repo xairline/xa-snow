@@ -26,7 +26,7 @@ type XplaneService interface {
 
 type xplaneService struct {
 	Plugin          *extra.XPlanePlugin
-	gribService     GribService
+	GribService     GribService
 	datarefPointers map[string]dataAccess.DataRef
 	Logger          logger.Logger
 	disabled        bool
@@ -47,7 +47,7 @@ func NewXplaneService(
 		defer xplaneSvcLock.Unlock()
 		xplaneSvc := &xplaneService{
 			Plugin: extra.NewPlugin("X Airline Snow", "com.github.xairline.xa-snow", "A plugin enables Frontend developer to contribute to xplane"),
-			gribService: NewGribService(logger,
+			GribService: NewGribService(logger,
 				utilities.GetSystemPath(),
 				filepath.Join(utilities.GetSystemPath(), "Resources", "plugins", "XA-snow", "bin")),
 			Logger:   logger,
@@ -90,6 +90,17 @@ func (s *xplaneService) onPluginStart() {
 	}
 	s.datarefPointers["lon"] = lon
 
+	go func() {
+		for {
+			err := gribSvc.DownloadAndProcessGribFile()
+			if err != nil {
+				s.Logger.Errorf("Download grib file failed: %v", err)
+			}
+			// TODO: disabled - auto NOAA update
+			return
+		}
+	}()
+
 	processing.RegisterFlightLoopCallback(s.flightLoop, -1, nil)
 }
 
@@ -103,6 +114,7 @@ func (s *xplaneService) flightLoop(
 	counter int,
 	ref interface{},
 ) float32 {
+
 	if s.datarefPointers["snow"] == nil {
 		snow, success := dataAccess.FindDataRef("sim/private/controls/wxr/snow_now")
 		if !success {
@@ -123,18 +135,13 @@ func (s *xplaneService) flightLoop(
 		return -1
 	}
 	if s.disabled {
-		// TODO: cleanup go routines
+		// TODO: cleanup go routines (not used now)
 		return 0
 	}
 
 	lat := dataAccess.GetFloatData(s.datarefPointers["lat"])
 	lon := dataAccess.GetFloatData(s.datarefPointers["lon"])
-
-	err := s.gribService.GetXplaneSnowDepth(lat, lon)
-	if err != nil {
-		s.Logger.Errorf("Error getting snow depth: %v", err)
-	}
-	snowDepth := s.gribService.GetCalculatedSnowDepth()
+	snowDepth := s.GribService.GetXplaneSnowDepth(lat, lon)
 
 	dataAccess.SetFloatData(s.datarefPointers["snow"], snowDepth)
 

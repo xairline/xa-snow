@@ -51,22 +51,7 @@ func TestDownloadGribFile(t *testing.T) {
 	mockLogger.On("Errorf", mock.Anything, mock.Anything).Return()
 
 	service := NewGribService(mockLogger, ".", "bin")
-
-	//url := getDownloadUrl()
-	//t.Log(url)
-	//t.Logf("Downloading grib file from %s", url)
-	//
-	_ = service.downloadGribFile()
-
+	_ = service.DownloadAndProcessGribFile()
 	service.GetXplaneSnowDepth(45.325356, -75.672249)
-
-	//// Assert the method does not return an error (change this based on actual implementation)
-	//if err != nil {
-	//	t.Errorf("downloadGribFile returned an error: %v", err)
-	//}
-
-	// Assert that Infof was called
-	mockLogger.AssertCalled(t, "Infof", "Downloading grib file from %s", mock.Anything)
-
-	// Add more assertions as needed
+	mockLogger.AssertCalled(t, "Infof", "Downloading GRIB file from %s", mock.Anything)
 }
