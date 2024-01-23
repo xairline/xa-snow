@@ -103,7 +103,7 @@ func (g *gribService) DownloadAndProcessGribFile() error {
 func (g *gribService) gribSnodToXplaneSnowNow(depth float32) float32 {
 	ret := 1.2
 	if depth > 0.001 {
-		ret = math.Max(1.05-(1.127*math.Pow(float64(depth), 0.142)), 0.01)
+		ret = math.Max(1.05-(1.127*math.Pow(float64(depth), 0.102)), 0.08)
 	}
 	return float32(ret)
 }

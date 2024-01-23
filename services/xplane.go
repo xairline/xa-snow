@@ -140,6 +140,12 @@ func (s *xplaneService) flightLoop(
 			s.Logger.Error("Dataref not found")
 		}
 		s.datarefPointers["weatherMode"] = weatherMode
+
+		rwySnowCover, success := dataAccess.FindDataRef("sim/private/controls/twxr/snow_area_width")
+		if !success {
+			s.Logger.Error("Dataref not found")
+		}
+		s.datarefPointers["rwySnowCover"] = rwySnowCover
 	}
 
 	if !s.override {
@@ -158,8 +164,12 @@ func (s *xplaneService) flightLoop(
 	lat := dataAccess.GetFloatData(s.datarefPointers["lat"])
 	lon := dataAccess.GetFloatData(s.datarefPointers["lon"])
 	snowDepth := s.GribService.GetXplaneSnowDepth(lat, lon)
-
 	dataAccess.SetFloatData(s.datarefPointers["snow"], snowDepth)
+	// Where I live, 40cm of snow on the ground but tarmac is clear
+	// So I just blow all the snow away from the runway for you
+	// consider this as a feature and not a bug
+	// TODO: make this configurable
+	dataAccess.SetFloatData(s.datarefPointers["rwySnowCover"], 0)
 
 	return -1
 }
