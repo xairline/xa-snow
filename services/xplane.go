@@ -5,11 +5,13 @@ package services
 //go:generate mockgen -destination=./__mocks__/xplane.go -package=mocks -source=xplane.go
 
 import (
+	"github.com/joho/godotenv"
 	"github.com/xairline/goplane/extra"
 	"github.com/xairline/goplane/xplm/dataAccess"
 	"github.com/xairline/goplane/xplm/processing"
 	"github.com/xairline/goplane/xplm/utilities"
 	"github.com/xairline/xa-snow/utils/logger"
+	"os"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -30,6 +32,7 @@ type xplaneService struct {
 	datarefPointers map[string]dataAccess.DataRef
 	Logger          logger.Logger
 	disabled        bool
+	override        bool
 }
 
 var xplaneSvcLock = &sync.Mutex{}
@@ -52,6 +55,7 @@ func NewXplaneService(
 				filepath.Join(utilities.GetSystemPath(), "Resources", "plugins", "XA-snow", "bin")),
 			Logger:   logger,
 			disabled: false,
+			override: false,
 		}
 		xplaneSvc.Plugin.SetPluginStateCallback(xplaneSvc.onPluginStateChanged)
 		return xplaneSvc
@@ -90,6 +94,15 @@ func (s *xplaneService) onPluginStart() {
 	}
 	s.datarefPointers["lon"] = lon
 
+	systemPath := utilities.GetSystemPath()
+	pluginPath := filepath.Join(systemPath, "Resources", "plugins", "XA-snow")
+	err := godotenv.Load(filepath.Join(pluginPath, "config"))
+	if err != nil {
+		s.Logger.Errorf("Some error occured. Err: %s", err)
+	}
+	if os.Getenv("OVERRIDE") == "true" {
+		s.override = true
+	}
 	go func() {
 		for {
 			err := gribSvc.DownloadAndProcessGribFile()
@@ -129,11 +142,14 @@ func (s *xplaneService) flightLoop(
 		s.datarefPointers["weatherMode"] = weatherMode
 	}
 
-	weatherMode := dataAccess.GetIntData(s.datarefPointers["weatherMode"])
-	if weatherMode != 1 {
-		// weather mode is not RW, we don't do anything to avoid snow on people's summer view
-		return -1
+	if !s.override {
+		weatherMode := dataAccess.GetIntData(s.datarefPointers["weatherMode"])
+		if weatherMode != 1 {
+			// weather mode is not RW, we don't do anything to avoid snow on people's summer view
+			return -1
+		}
 	}
+
 	if s.disabled {
 		// TODO: cleanup go routines (not used now)
 		return 0
