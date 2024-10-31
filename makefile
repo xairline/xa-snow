@@ -38,15 +38,12 @@ lin:
 	GOOS=linux \
 	GOARCH=amd64 \
 	CGO_ENABLED=1 \
-	CC=/opt/homebrew/bin/x86_64-linux-musl-cc \
+	CC=/usr/local/bin/x86_64-linux-musl-cc \
 	CGO_CFLAGS="-DLIN=1 -O0 -g" \
 	CGO_LDFLAGS="-shared -rdynamic -nodefaultlibs -undefined_warning" \
 	go build -buildmode c-shared -o build/XA-snow/lin.xpl main.go
 
 all: mac win lin
-	rm -rf build/XA-snow/mac_arm.xpl build/XA-snow/mac_amd.xpl
-	rm -rf build/*.zip
-	cd build && zip -r XA-snow.zip XA-snow
 mac-test:
 	GOOS=darwin \
 	GOARCH=arm64 \
