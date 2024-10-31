@@ -31,12 +31,14 @@ type GribService interface {
 }
 
 type gribService struct {
-	Logger              logger.Logger
-	gribFilePath        string
-	gribFileFolder      string
-	binPath             string
-	SnowDepthMap        [][]float32
-	SnowDepthMapCreated bool
+	Logger                logger.Logger
+	gribFilePath          string
+	gribFileFolder        string
+	binPath               string
+	SnowDepthMap          [][]float32
+	SnowDepthMapCreated   bool
+	IceCoverageMap        [][]float32
+	IceCoverageMapCreated bool
 }
 
 func NewGribService(logger logger.Logger, dir string, binPath string) GribService {
@@ -50,12 +52,14 @@ func NewGribService(logger logger.Logger, dir string, binPath string) GribServic
 		logger.Infof("Grib SVC: initializing with folder %s", dir)
 
 		gribSvc = &gribService{
-			Logger:              logger,
-			gribFileFolder:      dir,
-			gribFilePath:        "",
-			binPath:             binPath,
-			SnowDepthMap:        make([][]float32, 3600),
-			SnowDepthMapCreated: false,
+			Logger:                logger,
+			gribFileFolder:        dir,
+			gribFilePath:          "",
+			binPath:               binPath,
+			SnowDepthMap:          make([][]float32, 3600),
+			SnowDepthMapCreated:   false,
+			IceCoverageMap:        make([][]float32, 3600),
+			IceCoverageMapCreated: false,
 		}
 		return gribSvc
 	}
@@ -223,7 +227,7 @@ func getCycleDate() (string, int, int) {
 func getDownloadUrl() string {
 	cycleDate, cycle, forecast := getCycleDate()
 	filename := fmt.Sprintf("gfs.t%02dz.pgrb2.0p25.f0%02d", cycle, forecast)
-	return fmt.Sprintf("https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?dir=%%2Fgfs.%s%%2F%02d%%2Fatmos&file=%s&var_SNOD=on&all_lev=on", cycleDate, cycle, filename)
+	return fmt.Sprintf("https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?dir=%%2Fgfs.%s%%2F%02d%%2Fatmos&file=%s&var_ICEC=on&var_SNOD=on&all_lev=on", cycleDate, cycle, filename)
 	//return fmt.Sprintf("https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gfs.%s/%02d/atmos/%s", cycleDate, cycle, filename)
 }
 
@@ -245,30 +249,43 @@ func (g *gribService) convertGribToMap() {
 	// export grib file to csv
 	// 0:3600:0.1 means scan longitude from 0, 3600 steps with step 0.1 degree
 	// -90:1800:0.1 means scan latitude from -90, 1800 steps with step 0.1 degree
-	cmd := exec.Command(executablePath, "-s", "-lola", "0:3600:0.1", "-90:1800:0.1", "snod.csv", "spread", g.gribFilePath)
+	cmd := exec.Command(executablePath, "-s", "-lola", "0:3600:0.1", "-90:1800:0.1", "snod.csv", "spread", g.gribFilePath, "-match_fs", "SNOD")
 	err := g.exec(cmd)
 	if err != nil {
 		g.Logger.Errorf("Error converting grib file: %v", err)
 	}
-	// read csv file into 2D array
-	file, err := os.Open("snod.csv")
+
+	cmd = exec.Command(executablePath, "-s", "-lola", "0:3600:0.1", "-90:1800:0.1", "icec.csv", "spread", g.gribFilePath, "-match_fs", "ICEC")
+	err = g.exec(cmd)
+	if err != nil {
+		g.Logger.Errorf("Error converting grib file: %v", err)
+	}
+	// read csv fileSnow into 2D array
+	fileSnow, err := os.Open("snod.csv")
 	if err != nil {
 		g.Logger.Errorf("Error opening file: %v", err)
 	}
-	defer file.Close()
+	defer fileSnow.Close()
+	// read csv fileSnow into 2D array
+	fileIce, err := os.Open("icec.csv")
+	if err != nil {
+		g.Logger.Errorf("Error opening file: %v", err)
+	}
+	defer fileIce.Close()
+
 	// Create a new CSV reader
-	reader := csv.NewReader(file)
+	reader := csv.NewReader(fileSnow)
 	for i := 0; i < 3600; i++ {
 		g.SnowDepthMap[i] = make([]float32, 1801)
 	}
-	counter := 0
+	snowCounter := 0
 	for {
 		record, err := reader.Read()
 		if err != nil {
 			break
 		}
-		if counter == 0 {
-			counter++
+		if snowCounter == 0 {
+			snowCounter++
 			continue
 		}
 
@@ -289,10 +306,48 @@ func (g *gribService) convertGribToMap() {
 
 		// Store the value
 		g.SnowDepthMap[x][y] = value
-		counter++
+		snowCounter++
+	}
+
+	// Create a new CSV reader
+	reader = csv.NewReader(fileIce)
+	for i := 0; i < 3600; i++ {
+		g.IceCoverageMap[i] = make([]float32, 1801)
+	}
+	iceCounter := 0
+	for {
+		record, err := reader.Read()
+		if err != nil {
+			break
+		}
+		if iceCounter == 0 {
+			iceCounter++
+			continue
+		}
+
+		// Parse longitude, latitude, and value
+		lon, _ := strconv.ParseFloat(strings.TrimSpace(record[0]), 64)
+		lat, _ := strconv.ParseFloat(strings.TrimSpace(record[1]), 64)
+		var value float32
+		if strings.Contains(record[2], "e") {
+			value = 0
+		}
+		tmpVal, _ := strconv.ParseFloat(strings.TrimSpace(record[2]), 64)
+		value = float32(tmpVal)
+
+		// Convert longitude and latitude to array indices
+		// This example assumes the CSV contains all longitudes and latitudes
+		x := int(lon * 10)        // Adjust these calculations based on your data's range and resolution
+		y := int((lat + 90) * 10) // Adjust for negative latitudes
+
+		// Store the value
+		g.IceCoverageMap[x][y] = value
+		iceCounter++
 	}
 	g.SnowDepthMapCreated = true
-	g.Logger.Infof("Snow depth map size: %d", counter)
+	g.IceCoverageMapCreated = true
+	g.Logger.Infof("Snow depth map size: %d", snowCounter)
+	g.Logger.Infof("Ice Coverage map size: %d", iceCounter)
 	g.Logger.Info("Pre-processing GRIB file: Done")
 }
 
