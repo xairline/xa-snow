@@ -44,7 +44,8 @@ function win_build(wnd, x, y)
         local v = 1.25
         if snow_depth > 0.001 then
             v = 1.05 - 1.127 * math.pow(snow_depth, 0.102)
-            if v < 0 then v = 0.08 end
+            local cut_off = 0.08
+            if v < cut_off then v = cut_off end
         end
         set("sim/private/controls/wxr/snow_now", v)
     end
