@@ -53,14 +53,13 @@ mac-test:
 	go test -race -coverprofile=coverage.txt -covermode=atomic ./... -v
 
 # build on Windows msys2/mingw64
-PLUG_DIR:="/E/X-Plane-12-test/Resources/plugins/XA-snow"
+PLUG_DIR=$(XPL_ROOT)/Resources/plugins/XA-snow
+
 msys2:
-	CGO_CFLAGS="-DIBM=1 -static -O2 -g" \
-	CGO_LDFLAGS="-L${CURDIR}/Libraries/Win -lXPLM_64 -static-libgcc -static-libstdc++" \
-	GOOS=windows \
-	GOARCH=amd64 \
-	CGO_ENABLED=1 \
-	CC=gcc \
-	CXX=g++ \
+	@if [ -z "$(XPL_ROOT)" ]; then echo "Environment is not setup"; exit 1; fi
 	go build --buildmode c-shared -o build/XA-snow/win.xpl main.go
-	[ -d $(PLUG_DIR) ] && cp -p build/XA-snow/win.xpl $(PLUG_DIR)/.
+	[ -d "$(PLUG_DIR)" ] && cp -p build/XA-snow/win.xpl "$(PLUG_DIR)/."
+
+msys2-test:
+	@if [ -z "$(XPL_ROOT)" ]; then echo "Environment is not setup"; exit 1; fi
+	go test -race -coverprofile=coverage.txt -covermode=atomic ./... -v
