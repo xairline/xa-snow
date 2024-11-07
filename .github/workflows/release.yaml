@@ -53,10 +53,12 @@ jobs:
           # include subdirectories
           rm -f release/skunkcrafts_updater_whitelist.txt
           find release -type f ! \( -name '*skunkcrafts_updater*' -o -path '*skunkcrafts_updater*' \) -print0 | while IFS= read -r -d '' file; do
-            checksum=$(crc32 "$file")
+            checksum_hex=$(crc32 "$file")
+            # Convert hex checksum to uint32 decimal
+            checksum_decimal=$((16#$checksum_hex))
             # Remove "release/" prefix from $file
             modified_file="${file#release/}"
-            echo "$modified_file|$checksum" >> release/skunkcrafts_updater_whitelist.txt
+            echo "$modified_file|$checksum_decimal" >> release/skunkcrafts_updater_whitelist.txt
           done
           touch release/skunkcrafts_updater_blacklist.txt
           
