@@ -50,7 +50,7 @@ jobs:
           git checkout -b release
           git add .
           git commit -m "new release - ${TAG}"
-          git push -f 
+          git push -f -u origin release
 
       - name: Release
         uses: softprops/action-gh-release@v1
