@@ -42,7 +42,7 @@ jobs:
           cp -r bin ${{ github.workspace }}/build/XA-snow/
           TAG=$(git tag --points-at HEAD)
           cp ${{ github.workspace }}/skunkcrafts_updater.cfg ${{ github.workspace }}/build/XA-snow/
-          sed -i "s/REPLACE_ME/${TAG}/g" ${{ github.workspace }}/build/XA-snow/skunkcrafts_updater.cfg
+          sed -i '' "s/REPLACE_ME/${TAG}/g" ${{ github.workspace }}/build/XA-snow/skunkcrafts_updater.cfg
           root=$(pwd)
           cd ${{ github.workspace }}/build/ && zip -r xa-snow.zip XA-snow && cd $root
       - run: |
