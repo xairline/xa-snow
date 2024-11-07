@@ -4,6 +4,7 @@ package main
 
 import (
     "fmt"
+    "time"
     "github.com/xairline/xa-snow/services"
 )
 
@@ -47,8 +48,20 @@ func (m *MyLogger) Errorf(format string, a ...interface{}) {
 func main() {
 	Logger := new(MyLogger)
     Logger.Info("startup")
-	service := services.NewGribService(Logger, ".", "bin")
-	_ = service.DownloadAndProcessGribFile()
-	s := service.GetXplaneSnowDepth(51.418441, 9.387076)
-    Logger.Infof("s = %0.2f", s)
+	gs := services.NewGribService(Logger, ".", "bin")
+	_ = gs.DownloadAndProcessGribFile()
+
+    for ! gs.IsReady() {
+        Logger.Info("waiting for ready")
+        time.Sleep(1)
+    }
+
+	s := gs.GetSnowDepth(51.418441, 9.387076)
+    Logger.Infof("s = %0.2f", services.SnowDepthToXplaneSnowNow(s))
+	s = gs.GetSnowDepth(51.46, 9.387076)
+    Logger.Infof("s = %0.2f", services.SnowDepthToXplaneSnowNow(s))
+	s = gs.GetSnowDepth(51.418441, 9.32)
+    Logger.Infof("s = %0.2f", services.SnowDepthToXplaneSnowNow(s))
+	s = gs.GetSnowDepth(51.418441, 9.42)    // to the east
+    Logger.Infof("s = %0.2f", services.SnowDepthToXplaneSnowNow(s))
 }

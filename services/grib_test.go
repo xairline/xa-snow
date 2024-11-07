@@ -4,6 +4,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"log"
 	"testing"
+	"os"
 )
 
 // MockLogger is a mock type for the Logger type
@@ -46,12 +47,15 @@ func (m *MockLogger) Errorf(format string, args ...interface{}) {
 }
 
 func TestDownloadGribFile(t *testing.T) {
+	os.Unsetenv("USE_ICEC_CSV")
+	os.Unsetenv("USE_SNOD_CSV")
+
 	mockLogger := new(MockLogger)
 	mockLogger.On("Infof", mock.Anything, mock.Anything).Return()
 	mockLogger.On("Errorf", mock.Anything, mock.Anything).Return()
 
 	service := NewGribService(mockLogger, ".", "bin")
 	_ = service.DownloadAndProcessGribFile()
-	service.GetXplaneSnowDepth(45.325356, -75.672249)
+	SnowDepthToXplaneSnowNow(service.GetSnowDepth(45.325356, -75.672249))
 	mockLogger.AssertCalled(t, "Infof", "Downloading GRIB file from %s", mock.Anything)
 }
