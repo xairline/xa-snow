@@ -43,6 +43,7 @@ jobs:
           TAG=$(git tag --points-at HEAD)
           cp ${{ github.workspace }}/skunkcrafts_updater.cfg ${{ github.workspace }}/build/XA-snow/
           sed -i '' "s/REPLACE_ME/${TAG}/g" ${{ github.workspace }}/build/XA-snow/skunkcrafts_updater.cfg
+          sed -i '' "s/REPLACE_ME/${TAG}/g" ${{ github.workspace }}/build/XA-snow/skunkcrafts_updater_beta.cfg
           root=$(pwd)
           cd ${{ github.workspace }}/build/ && zip -r xa-snow.zip XA-snow && cd $root
       - run: |
@@ -63,10 +64,17 @@ jobs:
           touch release/skunkcrafts_updater_blacklist.txt
           
           TAG=$(git tag --points-at HEAD)
-          git checkout -b release
+          TARGET_BRANCH="release"
+          # if TAG contains -
+          if [[ $TAG == *"-"* ]]; then
+              echo "This is a beta release"
+              mv release/skunkcrafts_updater_bata.cfg release/skunkcrafts_updater.cfg
+              TARGET_BRANCH="beta"
+          fi
+          git checkout -b ${TARGET_BRANCH}
           git add .
-          git commit -m "new release - ${TAG}"
-          git push -f -u origin release
+          git commit -m "new ${TARGET_BRANCH} - ${TAG}"
+          git push -f -u origin ${TARGET_BRANCH}
 
       - name: Release
         uses: softprops/action-gh-release@v1
