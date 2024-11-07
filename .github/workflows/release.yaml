@@ -59,6 +59,7 @@ jobs:
             echo "$modified_file|$checksum" >> release/skunkcrafts_updater_whitelist.txt
           done
           
+          TAG=$(git tag --points-at HEAD)
           git checkout -b release
           git add .
           git commit -m "new release - ${TAG}"
