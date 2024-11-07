@@ -115,7 +115,7 @@ func (g *gribService) DownloadAndProcessGribFile() error {
             return err
         }
         // convert grib file to csv files
-        g.convertGribToCsv(snow_csv_file, ice_csv_file)
+        g.convertGribToCsv("snod.csv", "icec.csv")
     }
 
     g.convertSnowCsvToMap(snow_csv_file)
