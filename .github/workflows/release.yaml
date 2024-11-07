@@ -47,6 +47,12 @@ jobs:
           cd ${{ github.workspace }}/build/ && zip -r xa-snow.zip XA-snow && cd $root
       - run: |
           cp -r ${{ github.workspace }}/build/XA-snow/ release/
+          
+          # create crc32 checksum for all values and write to skunkcrafts_updater_whitelist.txt
+          # format is <filename>|<crc32 checksum>
+          # include subdirectories
+          find release -type f -exec crc32 {} \; | awk '{print $2 "|" $1}' > release/skunkcrafts_updater_whitelist.txt
+          
           git checkout -b release
           git add .
           git commit -m "new release - ${TAG}"
