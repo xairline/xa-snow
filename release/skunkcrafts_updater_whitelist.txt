@@ -10,3 +10,13 @@
 |e4bc00f1
 |ee82af0b
 |04acc9fe
+bin/INSTALL|694cbb8c
+bin/cygwin1.dll|a3ca1cf3
+bin/OSX11wgrib2|f4e4eee2
+bin/ivao.bin|e3b81151
+bin/README|8e737db8
+bin/linux-wgrib2|a1d40696
+bin/WIN32wgrib2.exe|ed29681a
+mac.xpl|e4bc00f1
+win.xpl|ee82af0b
+lin.xpl|04acc9fe

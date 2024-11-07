@@ -51,7 +51,13 @@ jobs:
           # create crc32 checksum for all values and write to skunkcrafts_updater_whitelist.txt
           # format is <filename>|<crc32 checksum>
           # include subdirectories
-          find release -type f -exec crc32 {} \; | awk '{print $2 "|" $1}' > release/skunkcrafts_updater_whitelist.txt
+          rm -f release/skunkcrafts_updater_whitelist.txt
+          find release -type f ! \( -name '*skunkcrafts_updater*' -o -path '*skunkcrafts_updater*' \) -print0 | while IFS= read -r -d '' file; do
+            checksum=$(crc32 "$file")
+            # Remove "release/" prefix from $file
+            modified_file="${file#release/}"
+            echo "$modified_file|$checksum" >> release/skunkcrafts_updater_whitelist.txt
+          done
           
           git checkout -b release
           git add .
