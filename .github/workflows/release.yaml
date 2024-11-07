@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0
-          
+
 
       - uses: actions/setup-go@v2
         with:
@@ -41,8 +41,8 @@ jobs:
           rm -f ${{ github.workspace }}/build/XA-snow/mac_arm.xpl ${{ github.workspace }}/build/XA-snow/mac_amd.xpl
           cp -r bin ${{ github.workspace }}/build/XA-snow/
           TAG=$(git tag --points-at HEAD)
-          cp ${{ github.workspace }}/skunkcrafts_updater.cfg
-          sed -i "s/REPLACE_ME/${TAG}/g" ${{ github.workspace }}/skunkcrafts_updater.cfg
+          cp ${{ github.workspace }}/skunkcrafts_updater.cfg ${{ github.workspace }}/build/XA-snow/
+          sed -i "s/REPLACE_ME/${TAG}/g" ${{ github.workspace }}/build/XA-snow/skunkcrafts_updater.cfg
           root=$(pwd)
           cd ${{ github.workspace }}/build/ && zip -r xa-snow.zip XA-snow && cd $root
       - run: |
