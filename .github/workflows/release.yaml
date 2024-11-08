@@ -69,6 +69,7 @@ jobs:
           # if TAG contains -
           if [[ $TAG == *"-"* ]]; then
               echo "This is a beta release"
+              ls release
               mv release/skunkcrafts_updater_bata.cfg release/skunkcrafts_updater.cfg
               TARGET_BRANCH="beta"
           fi
