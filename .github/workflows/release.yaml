@@ -43,6 +43,7 @@ jobs:
           TAG=${GITHUB_REF##*/}
           cp ${{ github.workspace }}/skunkcrafts_updater.cfg ${{ github.workspace }}/build/XA-snow/
           cp ${{ github.workspace }}/skunkcrafts_updater_beta.cfg ${{ github.workspace }}/build/XA-snow/
+          cp ${{ github.workspace }}/LICENSE ${{ github.workspace }}/build/XA-snow/
           sed -i '' "s/REPLACE_ME/${TAG}/g" ${{ github.workspace }}/build/XA-snow/skunkcrafts_updater.cfg
           sed -i '' "s/REPLACE_ME/${TAG}/g" ${{ github.workspace }}/build/XA-snow/skunkcrafts_updater_beta.cfg
           root=$(pwd)
