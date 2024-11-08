@@ -12,7 +12,6 @@ import (
 	"github.com/xairline/goplane/xplm/utilities"
 	"github.com/xairline/xa-snow/utils/logger"
 	"os"
-	"math"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -30,6 +29,7 @@ type XplaneService interface {
 type xplaneService struct {
 	Plugin          *extra.XPlanePlugin
 	GribService     GribService
+	p2x				Phys2XPlane
 	datarefPointers map[string]dataAccess.DataRef
 	Logger          logger.Logger
 	disabled        bool
@@ -54,6 +54,7 @@ func NewXplaneService(
 			GribService: NewGribService(logger,
 				utilities.GetSystemPath(),
 				filepath.Join(utilities.GetSystemPath(), "Resources", "plugins", "XA-snow", "bin")),
+			p2x : NewPhys2XPlane(logger),
 			Logger:   logger,
 			disabled: false,
 			override: false,
@@ -122,16 +123,6 @@ func (s *xplaneService) onPluginStop() {
 	s.Logger.Info("Plugin stopped")
 }
 
-// convert snow depth from grib(m) to xplane snow_now
-func SnowDepthToXplaneSnowNow(depth float32) float32 {
-	ret := 1.2
-	if depth > 0.001 {
-		ret = math.Max(1.05-(1.127*math.Pow(float64(depth), 0.102)), 0.08)
-	}
-	return float32(ret)
-}
-
-
 func (s *xplaneService) flightLoop(
 	elapsedSinceLastCall,
 	elapsedTimeSinceLastFlightLoop float32,
@@ -179,7 +170,13 @@ func (s *xplaneService) flightLoop(
 	lat := dataAccess.GetFloatData(s.datarefPointers["lat"])
 	lon := dataAccess.GetFloatData(s.datarefPointers["lon"])
 	snowDepth := s.GribService.GetSnowDepth(lat, lon)
-	snowNow := SnowDepthToXplaneSnowNow(snowDepth)
+
+	// If we have no snow let X-Plane do its weather effects
+	if snowDepth < 0.001 {
+		return -1;
+	}
+
+	snowNow := s.p2x.SnowDepthToXplaneSnowNow(snowDepth)
 	dataAccess.SetFloatData(s.datarefPointers["snow"], snowNow)
 	// Where I live, 40cm of snow on the ground but tarmac is clear
 	// So I just blow all the snow away from the runway for you

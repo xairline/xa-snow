@@ -55,7 +55,9 @@ func TestDownloadGribFile(t *testing.T) {
 	mockLogger.On("Errorf", mock.Anything, mock.Anything).Return()
 
 	service := NewGribService(mockLogger, ".", "bin")
+	p2x := NewPhys2XPlane(mockLogger)
+
 	_ = service.DownloadAndProcessGribFile()
-	SnowDepthToXplaneSnowNow(service.GetSnowDepth(45.325356, -75.672249))
+	p2x.SnowDepthToXplaneSnowNow(service.GetSnowDepth(45.325356, -75.672249))
 	mockLogger.AssertCalled(t, "Infof", "Downloading GRIB file from %s", mock.Anything)
 }

@@ -51,17 +51,27 @@ func main() {
 	gs := services.NewGribService(Logger, ".", "bin")
 	_ = gs.DownloadAndProcessGribFile()
 
+	p2s := services.NewPhys2XPlane(Logger)
+	
     for ! gs.IsReady() {
         Logger.Info("waiting for ready")
         time.Sleep(1)
     }
 
 	s := gs.GetSnowDepth(51.418441, 9.387076)
-    Logger.Infof("s = %0.2f", services.SnowDepthToXplaneSnowNow(s))
-	s = gs.GetSnowDepth(51.46, 9.387076)
-    Logger.Infof("s = %0.2f", services.SnowDepthToXplaneSnowNow(s))
-	s = gs.GetSnowDepth(51.418441, 9.32)
-    Logger.Infof("s = %0.2f", services.SnowDepthToXplaneSnowNow(s))
+    Logger.Infof("s = %0.2f", p2s.SnowDepthToXplaneSnowNow(s))
+	s = gs.GetSnowDepth(51.48, 9.387076)
+    Logger.Infof("s = %0.2f", p2s.SnowDepthToXplaneSnowNow(s))
+	s = gs.GetSnowDepth(51.51, 9.37)
+    Logger.Infof("s = %0.2f", p2s.SnowDepthToXplaneSnowNow(s))
 	s = gs.GetSnowDepth(51.418441, 9.42)    // to the east
-    Logger.Infof("s = %0.2f", services.SnowDepthToXplaneSnowNow(s))
+    Logger.Infof("s = %0.2f", p2s.SnowDepthToXplaneSnowNow(s))
+	s = gs.GetSnowDepth(51.5, 9.38)
+    Logger.Infof("s = %0.2f", p2s.SnowDepthToXplaneSnowNow(s))
+	s = gs.GetSnowDepth(51.51, 9.38)
+    Logger.Infof("s = %0.2f", p2s.SnowDepthToXplaneSnowNow(s))
+	fmt.Println("-----------------------------------------")
+	s = gs.GetSnowDepth(51.49, 9.37)
+	s = gs.GetSnowDepth(51.50, 9.37)
+	s = gs.GetSnowDepth(51.51, 9.37)
 }

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/xairline/xa-snow/utils/logger"
 	"io"
-	"math"
 	"net/http"
 	"os"
 	"os/exec"
@@ -24,7 +23,6 @@ const n_iLat = 1801
 type DepthMap interface {
 	Get(lon, lat float32) float32
 	LoadCsv(csv_name string)
-	Smooth()
 }
 
 type depthMap struct {
@@ -103,107 +101,56 @@ func (m *depthMap)Get(lon, lat float32) float32 {
 		m.Logger.Errorf("Get called and map %s is not ready!", m.name)
 		return 0.0
 	}
+
+    // get value a iLat, iLon with range check
+	getVal := func(iLon, iLat int) float32 {
+		// for lon we wrap around
+		if iLon >= n_iLon {
+			iLon  -= n_iLon
+		}
+
+		// for lat we just confine, doesn't make a difference anyway
+		if iLat > n_iLat {
+			iLat = n_iLat
+		}
+
+		return m.val[iLon][iLat]
+	}
+
 	// our snow world map is 3600x1801 [0,359.9]x[0,180.0]
-	iLat := int(math.Round(float64(lat+90) * 10))
+	lat += 90.0
 
 	// longitude is -180 to 180, we need to convert it to 0 to 360
 	if lon < 0 {
 		lon = lon + 360
 	}
-	iLon := int(math.Round(float64(lon) * 10))
-	// if we are at the edge of the map, we use the other side of the map
-	if iLon == n_iLon {
-		iLon = 0
-	}
-	return m.val[iLon][iLat]
-}
 
-// legacy smoothin algorithm
-// smooth the snow depth map so that we don't have sudden changes
-func (m *depthMap)Smooth() {
-	smoothedCounter := 0
-	// number of boxes to smooth east or west
-	smoothFactor := 20
-	// number of boxes to skip before we start smoothing
-	// this is to avoid smoothing the snow depth map when there is no snow
-	smoothGapMin := 3
-	for i := 0; i < 1801; i++ {
-		// smooth from west to east
-		noSnowCounter := 0
-		for j := 0; j < 3600; j++ {
-			// count how many no-snow boxes we have so far
-			if m.val[j][i] <= 0.001 && m.val[j][i] >= -0.001 {
-				// if a box has no snow, but it's east and wst boxes has snow, we fill it with the average of the two
-				if j-1 >= 0 && j+1 < 3600 {
-					if m.val[j-1][i] > 0.001 && m.val[j+1][i] > 0.001 {
-						m.val[j][i] = -1 * (m.val[j-1][i] + m.val[j+1][i]) / 2.0
-					} else {
-						noSnowCounter++
-						continue
-					}
-				} else {
-					noSnowCounter++
-					continue
-				}
-			}
-			if m.val[j][i] > 0.001 {
-				// we now find snow,
-				// if we have seen more than 10 no-snow boxes
-				// we smooth the snow
-				if noSnowCounter >= smoothGapMin {
-					// linear smooth based on the smoothFactor
-					for k := 1; k <= smoothFactor; k++ {
-						x := j - k
-						if x < 0 {
-							x = 3599 + x
-						}
-						// only smooth it when it's not already smoothed or has snow
-						if m.val[x][i] < 0.001 && m.val[x][i] > -0.001 {
-							// for debugging purpose we use negative value to indicate smoothed boxes
-							m.val[x][i] = -1.0 * float32(math.Max(float64(float32(smoothFactor-k)*m.val[j][i]/float32(smoothFactor)), 0.0))
-						} else {
-							break
-						}
-					}
-					smoothedCounter += 1
-					j += smoothFactor
-				}
-				noSnowCounter = 0
-			}
-		}
-		// smooth from east to west
-		// almost the same as the above, except we start from the east
-		noSnowCounter = 0
-		for j := 3599; j >= 0; j-- {
-			// count how many no-snow boxes we have so far
-			if m.val[j][i] <= 0.001 && m.val[j][i] >= -0.001 {
-				noSnowCounter++
-				continue
-			}
-			if m.val[j][i] > 0.001 {
-				// we now find snow, if we have more than 10 no-snow boxes, we smooth the snow
-				if noSnowCounter >= smoothGapMin {
-					// smooth the snow
-					for k := 1; k <= smoothFactor; k++ {
-						x := j + k
-						if x > 3599 {
-							x = x - 3599
-						}
-						// only smooth it when it's not already smoothed or has snow
-						if m.val[x][i] < 0.001 && m.val[x][i] > -0.001 {
-							m.val[x][i] = -1.0 * float32(math.Max(float64(float32(smoothFactor-k)*m.val[j][i]/float32(smoothFactor)), 0.0))
-						} else {
-							break
-						}
-					}
-					smoothedCounter += 1
-					noSnowCounter = 0
-					j -= smoothFactor
-				}
-			}
-		}
-	}
-	m.Logger.Infof("Smoothed %d boxes of %f east/west", smoothedCounter, float32(smoothFactor)*0.1)
+	lon *= 10
+	lat *= 10
+
+	// index of tile is lower left corner
+	iLon := int(lon)
+	iLat := int(lat)
+
+	// (s, t) coordinates of (lon, lat) within tile, s,t in [0,1]
+	s := lon - float32(iLon)
+	t := lat - float32(iLat)
+
+	//m.Logger.Infof("(%f, %f) -> (%d, %d) (%f, %f)", lon/10, lat/10 - 90, iLon, iLat, s, t)
+	v00 := getVal(iLon, iLat)
+	v10 := getVal(iLon + 1, iLat)
+	v01 := getVal(iLon, iLat + 1)
+	v11 := getVal(iLon + 1, iLat +1)
+
+	// Lagrange polynoms: pij = is 1 on corner ij and 0 elsewhere
+	p00 := (1 - s) * (1 - t)
+	p10 := s * (1 - t)
+	p01 := (1 - s ) * t
+	p11 := s * t
+
+	v := v00 * p00 + v10 * p10 + v01 * p01 + v11 * p11
+	//m.Logger.Infof("vij: %f, %f, %f, %f; v: %f", v00, v10, v01, v11, v)
+	return v
 }
 
 var gribSvcLock = &sync.Mutex{}
@@ -272,8 +219,6 @@ func (g *gribService) DownloadAndProcessGribFile() error {
     g.SnowDm.LoadCsv(snow_csv_file)
     g.IceDm.LoadCsv(ice_csv_file)
 
-	// smooth the snow depth map
-    g.SnowDm.Smooth()
 	// remove old grib files
 	err = g.removeOldGribFiles(gribFilename)
 	if err != nil {
