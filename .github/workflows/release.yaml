@@ -85,4 +85,4 @@ jobs:
           body_path: ${{ github.workspace }}/README.md
           files: |
             ${{ github.workspace }}/build/xa-snow.zip
-          prerelease: false
+          prerelease: ${{ contains(replace(github.ref, 'refs/tags/', ''), '-') }}
