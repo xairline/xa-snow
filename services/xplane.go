@@ -27,13 +27,52 @@ type XplaneService interface {
 }
 
 type xplaneService struct {
-	Plugin          *extra.XPlanePlugin
-	GribService     GribService
-	p2x				Phys2XPlane
-	datarefPointers map[string]dataAccess.DataRef
-	Logger          logger.Logger
-	disabled        bool
-	override        bool
+	Plugin          	*extra.XPlanePlugin
+	GribService     	GribService
+	p2x					Phys2XPlane
+	drefsInited			bool
+
+	lat_dr, lon_dr,
+	snow_dr,
+	weatherMode_dr,
+	rwySnowCover_dr 	dataAccess.DataRef
+
+	Logger          	logger.Logger
+	disabled        	bool
+	override        	bool
+
+	loopCnt				uint32
+	snowDepth, snowNow	float32
+}
+
+// some drefs are private and need delayed initialization
+func initDrefs(s *xplaneService) bool {
+	if ! s.drefsInited {
+		var res bool
+		success := true
+		s.lat_dr, res = dataAccess.FindDataRef("sim/flightmodel/position/latitude")
+		success = success && res
+
+		s.lon_dr, res = dataAccess.FindDataRef("sim/flightmodel/position/longitude")
+		success = success && res
+
+		s.snow_dr, res = dataAccess.FindDataRef("sim/private/controls/wxr/snow_now")
+		success = success && res
+
+		s.weatherMode_dr, res = dataAccess.FindDataRef("sim/weather/region/weather_source")
+		success = success && res
+
+		s.rwySnowCover_dr, res = dataAccess.FindDataRef("sim/private/controls/twxr/snow_area_width")
+		success = success && res
+
+		if !success {
+			s.Logger.Error("Dataref(s) not found")
+			return false
+		}
+		s.drefsInited = true
+	}
+
+	return true
 }
 
 var xplaneSvcLock = &sync.Mutex{}
@@ -50,7 +89,7 @@ func NewXplaneService(
 		xplaneSvcLock.Lock()
 		defer xplaneSvcLock.Unlock()
 		xplaneSvc := &xplaneService{
-			Plugin: extra.NewPlugin("X Airline Snow", "com.github.xairline.xa-snow", "A plugin enables Frontend developer to contribute to xplane"),
+			Plugin: extra.NewPlugin("X Airline Snow", "com.github.xairline.xa-snow", "show accumulated snow in X-Plane's world"),
 			GribService: NewGribService(logger,
 				utilities.GetSystemPath(),
 				filepath.Join(utilities.GetSystemPath(), "Resources", "plugins", "XA-snow", "bin")),
@@ -71,30 +110,18 @@ func (s *xplaneService) onPluginStateChanged(state extra.PluginState, plugin *ex
 	case extra.PluginStop:
 		s.onPluginStop()
 	case extra.PluginEnable:
+		s.disabled = false
 		s.Logger.Infof("Plugin: %s enabled", plugin.GetName())
 	case extra.PluginDisable:
 		s.disabled = true
 		s.Logger.Infof("Plugin: %s disabled", plugin.GetName())
+		// TODO: cleanup go routines (not used now)
 	}
 }
 
 func (s *xplaneService) onPluginStart() {
 	s.Logger.Info("Plugin started")
-	s.datarefPointers = make(map[string]dataAccess.DataRef)
-
 	runtime.GOMAXPROCS(runtime.NumCPU())
-
-	lat, success := dataAccess.FindDataRef("sim/flightmodel/position/latitude")
-	if !success {
-		s.Logger.Error("Dataref not found")
-	}
-	s.datarefPointers["lat"] = lat
-
-	lon, success := dataAccess.FindDataRef("sim/flightmodel/position/longitude")
-	if !success {
-		s.Logger.Error("Dataref not found")
-	}
-	s.datarefPointers["lon"] = lon
 
 	systemPath := utilities.GetSystemPath()
 	pluginPath := filepath.Join(systemPath, "Resources", "plugins", "XA-snow")
@@ -116,13 +143,15 @@ func (s *xplaneService) onPluginStart() {
 		}
 	}()
 
-	processing.RegisterFlightLoopCallback(s.flightLoop, -1, nil)
+	// start with delay to let the dust settle
+	processing.RegisterFlightLoopCallback(s.flightLoop, 15.0, nil)
 }
 
 func (s *xplaneService) onPluginStop() {
 	s.Logger.Info("Plugin stopped")
 }
 
+// flightloop, high freq code!
 func (s *xplaneService) flightLoop(
 	elapsedSinceLastCall,
 	elapsedTimeSinceLastFlightLoop float32,
@@ -130,59 +159,48 @@ func (s *xplaneService) flightLoop(
 	ref interface{},
 ) float32 {
 
-	if s.datarefPointers["snow"] == nil {
-		snow, success := dataAccess.FindDataRef("sim/private/controls/wxr/snow_now")
-		if !success {
-			s.Logger.Error("Dataref not found")
-		}
-		s.datarefPointers["snow"] = snow
-
-		weatherMode, success := dataAccess.FindDataRef("sim/weather/region/weather_source")
-		if !success {
-			s.Logger.Error("Dataref not found")
-		}
-		s.datarefPointers["weatherMode"] = weatherMode
-
-		rwySnowCover, success := dataAccess.FindDataRef("sim/private/controls/twxr/snow_area_width")
-		if !success {
-			s.Logger.Error("Dataref not found")
-		}
-		s.datarefPointers["rwySnowCover"] = rwySnowCover
+	// delayed init
+	if ! initDrefs(s) {
+		return 5.0
 	}
 
 	if !s.override {
-		weatherMode := dataAccess.GetIntData(s.datarefPointers["weatherMode"])
+		weatherMode := dataAccess.GetIntData(s.weatherMode_dr)
 		if weatherMode != 1 {
 			// weather mode is not RW, we don't do anything to avoid snow on people's summer view
-			return -1
+			return 5.0
 		}
-	}
-
-	if s.disabled {
-		// TODO: cleanup go routines (not used now)
-		return 0
 	}
 
 	if !s.GribService.IsReady() {
 		return 2.0
 	}
 
-	lat := dataAccess.GetFloatData(s.datarefPointers["lat"])
-	lon := dataAccess.GetFloatData(s.datarefPointers["lon"])
-	snowDepth := s.GribService.GetSnowDepth(lat, lon)
+	// throttle update computations
+	s.loopCnt++
+	if s.loopCnt % 8 == 1 {
+		lat := dataAccess.GetFloatData(s.lat_dr)
+		lon := dataAccess.GetFloatData(s.lon_dr)
+		snowDepth_n := s.GribService.GetSnowDepth(lat, lon)
 
-	// If we have no snow let X-Plane do its weather effects
-	if snowDepth < 0.001 {
-		return -1;
+		// some exponential smoothing
+		const alpha = float32(0.7)
+		s.snowDepth = alpha *  snowDepth_n + (1 - alpha) * s.snowDepth
+
+		// If we have no accumulated snow leave the datarefs alone and let X-Plane do its weather effects
+		if s.snowDepth < 0.001 {
+			return -1
+		}
+
+		s.snowNow = s.p2x.SnowDepthToXplaneSnowNow(s.snowDepth)
 	}
 
-	snowNow := s.p2x.SnowDepthToXplaneSnowNow(snowDepth)
-	dataAccess.SetFloatData(s.datarefPointers["snow"], snowNow)
+	dataAccess.SetFloatData(s.snow_dr, s.snowNow)
 	// Where I live, 40cm of snow on the ground but tarmac is clear
 	// So I just blow all the snow away from the runway for you
 	// consider this as a feature and not a bug
 	// TODO: make this configurable
-	dataAccess.SetFloatData(s.datarefPointers["rwySnowCover"], 0)
+	dataAccess.SetFloatData(s.rwySnowCover_dr, 0)
 
 	return -1
 }
