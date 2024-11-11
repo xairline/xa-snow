@@ -34,7 +34,7 @@ type xplaneService struct {
 
 	lat_dr, lon_dr,
 	weatherMode_dr,
-	sysTime_dr, simCurrentDay_dr, simCurrentMonth_dr, simZuluHours_dr,
+	sysTime_dr, simCurrentDay_dr, simCurrentMonth_dr, simLocalHours_dr,
 	snow_dr,
 	rwySnowCover_dr 	dataAccess.DataRef
 
@@ -132,7 +132,7 @@ func (s *xplaneService) onPluginStart() {
 	s.sysTime_dr, _ = dataAccess.FindDataRef("sim/time/use_system_time")
 	s.simCurrentMonth_dr, _ = dataAccess.FindDataRef("sim/cockpit2/clock_timer/current_month")
 	s.simCurrentDay_dr, _ = dataAccess.FindDataRef("sim/cockpit2/clock_timer/current_day")
-	s.simZuluHours_dr, _ = dataAccess.FindDataRef("sim/cockpit2/clock_timer/zulu_time_hours")
+	s.simLocalHours_dr, _ = dataAccess.FindDataRef("sim/cockpit2/clock_timer/local_time_hours")
 
 	// start with delay to let the dust settle
 	processing.RegisterFlightLoopCallback(s.flightLoop, 5.0, nil)
@@ -164,11 +164,11 @@ func (s *xplaneService) flightLoop(
 		sys_time := dataAccess.GetIntData(s.sysTime_dr) == 1
 		day := dataAccess.GetIntData(s.simCurrentDay_dr)
 		month := dataAccess.GetIntData(s.simCurrentMonth_dr)
-		hour := dataAccess.GetIntData(s.simZuluHours_dr)
+		hour := dataAccess.GetIntData(s.simLocalHours_dr)
 
 		go func() {
 			for {
-				err := gribSvc.DownloadAndProcessGribFile(sys_time, day, month, hour)
+				err := gribSvc.DownloadAndProcessGribFile(sys_time, month, day, hour)
 				if err != nil {
 					s.Logger.Errorf("Download grib file failed: %v", err)
 				} else {

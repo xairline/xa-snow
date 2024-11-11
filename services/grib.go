@@ -185,7 +185,7 @@ func (g *gribService) GetSnowDepth(lat, lon float32) float32 {
     return g.SnowDm.Get(lon, lat)
 }
 
-func (g *gribService) DownloadAndProcessGribFile(sys_time bool, day, month, hour int) error {
+func (g *gribService) DownloadAndProcessGribFile(sys_time bool, month, day, hour int) error {
     file_override := 0
 
     snow_csv_file := "snod.csv"
@@ -227,30 +227,31 @@ func (g *gribService) DownloadAndProcessGribFile(sys_time bool, day, month, hour
 	return nil
 }
 
-func getCycleDate() (string, int, int) {
-	now := time.Now().UTC()
-	cnow := now.Add(-4*time.Hour - 25*time.Minute) // Adjusted time considering publish delay
+func getDownloadUrl(timeUTC time.Time) (string, time.Time, int) {
+	fmt.Println("timeUTC:", timeUTC)
+	ctimeUTC := timeUTC.Add(-4*time.Hour - 25*time.Minute) // Adjusted time considering publish delay
+	fmt.Println("ctimeUTC:", ctimeUTC)
 	cycles := []int{0, 6, 12, 18}
-	var lcycle int
-	for _, cycle := range cycles {
-		if cnow.Hour() >= cycle {
-			lcycle = cycle
+	var cycle int
+	for _, cycle_ := range cycles {
+		if ctimeUTC.Hour() >= cycle_ {
+			cycle = cycle_
 		}
 	}
 
 	adjs := 0
-	if cnow.Day() != now.Day() {
+	if ctimeUTC.Day() != timeUTC.Day() {
 		adjs = 24
 	}
-	forecast := (adjs + now.Hour() - lcycle) / 3 * 3
+	forecast := (adjs + timeUTC.Hour() - cycle) / 3 * 3
 
-	return fmt.Sprintf("%d%02d%02d", cnow.Year(), cnow.Month(), cnow.Day()), lcycle, forecast
-}
+	cycleDate := fmt.Sprintf("%d%02d%02d", ctimeUTC.Year(), ctimeUTC.Month(), ctimeUTC.Day())
 
-func getDownloadUrl() string {
-	cycleDate, cycle, forecast := getCycleDate()
 	filename := fmt.Sprintf("gfs.t%02dz.pgrb2.0p25.f0%02d", cycle, forecast)
-	return fmt.Sprintf("https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?dir=%%2Fgfs.%s%%2F%02d%%2Fatmos&file=%s&var_ICEC=on&var_SNOD=on&all_lev=on", cycleDate, cycle, filename)
+	fmt.Println("Filename:", filename, cycle, forecast)
+	url := fmt.Sprintf("https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?dir=%%2Fgfs.%s%%2F%02d%%2Fatmos&file=%s&var_ICEC=on&var_SNOD=on&all_lev=on", cycleDate, cycle, filename)
+	return url, ctimeUTC, cycle
+
 	//return fmt.Sprintf("https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gfs.%s/%02d/atmos/%s", cycleDate, cycle, filename)
 }
 
@@ -285,20 +286,39 @@ func (g *gribService) convertGribToCsv(snow_csv_name, ice_csv_name string) {
 	g.Logger.Info("Pre-processing GRIB file to CSV: Done")
 }
 
-
+// day, month, hour are in the local TZ
 func (g *gribService) downloadGribFile(sys_time bool, day, month, hour int) (string, error) {
-	g.Logger.Infof("downloadGribFile: Using system time: %t, day: %d, month: %d, hour: %d",
-				   sys_time, day, month, hour)
+	g.Logger.Infof("downloadGribFile: Using system time: %t, month: %d, day: %d, hour: %d",
+				   sys_time, month, day, hour)
 
-	url := getDownloadUrl()
+	now := time.Now()
+	timeUTC := now.UTC()
+	if !sys_time {
+		// historic mode
+
+		loc := now.Location()	// my TZ
+		year := now.Year()
+
+		m := int(now.Month())
+		if (month > m) ||
+		   (month == m && day > now.Day()) ||
+		   (month == m && day == now.Day() && hour > now.Hour()) {
+			// future month/day/hour -> use previous year
+			year--
+		}
+
+		timeUTC = time.Date(year, time.Month(month), day, hour, 0, 0, 0, loc).UTC()
+	}
+
+	url, ctimeUTC, cycle := getDownloadUrl(timeUTC)
 	g.Logger.Infof("Downloading GRIB file from %s", url)
 	// Get today's date in yyyy-mm-dd format
-	today := time.Now().Format("2006-01-02")
-	_, cycle, _ := getCycleDate()
+	today := ctimeUTC.Format("2006-01-02")
 	// Create the filename with today's date
 	filename := today + "_" + fmt.Sprintf("%d", cycle) + "_noaa.grib2"
 	g.gribFilePath = filepath.Join(g.gribFileFolder, filename)
 	g.Logger.Infof("GRIB file path: %s", g.gribFilePath)
+
 	// if file does not exist, download
 	if _, err := os.Stat(g.gribFilePath); err != nil {
 		// Get the data

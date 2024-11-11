@@ -49,7 +49,8 @@ func main() {
 	Logger := new(MyLogger)
     Logger.Info("startup")
 	gs := services.NewGribService(Logger, ".", "bin")
-	_ = gs.DownloadAndProcessGribFile()
+	//_ = gs.DownloadAndProcessGribFile(true, 0, 0, 0)
+	_ = gs.DownloadAndProcessGribFile(false, 10, 11, 15)
 
 	p2s := services.NewPhys2XPlane(Logger)
 	
