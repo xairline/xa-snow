@@ -8,6 +8,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/xairline/goplane/extra"
 	"github.com/xairline/goplane/xplm/dataAccess"
+	"github.com/xairline/goplane/xplm/plugins"
 	"github.com/xairline/goplane/xplm/processing"
 	"github.com/xairline/goplane/xplm/utilities"
 	"github.com/xairline/xa-snow/utils/logger"
@@ -27,27 +28,27 @@ type XplaneService interface {
 }
 
 type xplaneService struct {
-	Plugin          	*extra.XPlanePlugin
-	GribService     	GribService
-	p2x					Phys2XPlane
-	drefsInited			bool
+	Plugin      *extra.XPlanePlugin
+	GribService GribService
+	p2x         Phys2XPlane
+	drefsInited bool
 
 	lat_dr, lon_dr,
 	snow_dr,
 	weatherMode_dr,
-	rwySnowCover_dr 	dataAccess.DataRef
+	rwySnowCover_dr, simCurrentMonth_dr, simCurrentDay_dr dataAccess.DataRef
 
-	Logger          	logger.Logger
-	disabled        	bool
-	override        	bool
+	Logger   logger.Logger
+	disabled bool
+	override bool
 
-	loopCnt				uint32
-	snowDepth, snowNow	float32
+	loopCnt            uint32
+	snowDepth, snowNow float32
 }
 
 // some drefs are private and need delayed initialization
 func initDrefs(s *xplaneService) bool {
-	if ! s.drefsInited {
+	if !s.drefsInited {
 		var res bool
 		success := true
 		s.lat_dr, res = dataAccess.FindDataRef("sim/flightmodel/position/latitude")
@@ -63,6 +64,12 @@ func initDrefs(s *xplaneService) bool {
 		success = success && res
 
 		s.rwySnowCover_dr, res = dataAccess.FindDataRef("sim/private/controls/twxr/snow_area_width")
+		success = success && res
+
+		s.simCurrentMonth_dr, res = dataAccess.FindDataRef("sim/cockpit2/clock_timer/current_month")
+		success = success && res
+
+		s.simCurrentDay_dr, res = dataAccess.FindDataRef("sim/cockpit2/clock_timer/current_day")
 		success = success && res
 
 		if !success {
@@ -93,12 +100,13 @@ func NewXplaneService(
 			GribService: NewGribService(logger,
 				utilities.GetSystemPath(),
 				filepath.Join(utilities.GetSystemPath(), "Resources", "plugins", "XA-snow", "bin")),
-			p2x : NewPhys2XPlane(logger),
+			p2x:      NewPhys2XPlane(logger),
 			Logger:   logger,
 			disabled: false,
 			override: false,
 		}
 		xplaneSvc.Plugin.SetPluginStateCallback(xplaneSvc.onPluginStateChanged)
+		xplaneSvc.Plugin.SetMessageHandler(xplaneSvc.messageHandler)
 		return xplaneSvc
 	}
 }
@@ -160,7 +168,7 @@ func (s *xplaneService) flightLoop(
 ) float32 {
 
 	// delayed init
-	if ! initDrefs(s) {
+	if !initDrefs(s) {
 		return 5.0
 	}
 
@@ -178,14 +186,14 @@ func (s *xplaneService) flightLoop(
 
 	// throttle update computations
 	s.loopCnt++
-	if s.loopCnt % 8 == 1 {
+	if s.loopCnt%8 == 1 {
 		lat := dataAccess.GetFloatData(s.lat_dr)
 		lon := dataAccess.GetFloatData(s.lon_dr)
 		snowDepth_n := s.GribService.GetSnowDepth(lat, lon)
 
 		// some exponential smoothing
 		const alpha = float32(0.7)
-		s.snowDepth = alpha *  snowDepth_n + (1 - alpha) * s.snowDepth
+		s.snowDepth = alpha*snowDepth_n + (1-alpha)*s.snowDepth
 
 		// If we have no accumulated snow leave the datarefs alone and let X-Plane do its weather effects
 		if s.snowDepth < 0.001 {
@@ -203,4 +211,14 @@ func (s *xplaneService) flightLoop(
 	dataAccess.SetFloatData(s.rwySnowCover_dr, 0)
 
 	return -1
+}
+
+func (s *xplaneService) messageHandler(message plugins.Message) {
+	if message.MessageId == plugins.MSG_SCENERY_LOADED {
+		s.Logger.Info("Scenery loaded")
+		initDrefs(s)
+		current_month := dataAccess.GetIntData(s.simCurrentMonth_dr)
+		current_day := dataAccess.GetIntData(s.simCurrentDay_dr)
+		s.Logger.Infof("Current month: %d, day: %d in SIM", current_month, current_day)
+	}
 }
