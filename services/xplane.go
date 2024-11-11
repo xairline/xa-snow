@@ -195,6 +195,11 @@ func (s *xplaneService) flightLoop(
 		s.snowNow = s.p2x.SnowDepthToXplaneSnowNow(s.snowDepth)
 	}
 
+	// If we have no accumulated snow leave the datarefs alone and let X-Plane do its weather effects
+	if s.snowDepth < 0.001 {
+		return -1
+	}
+
 	dataAccess.SetFloatData(s.snow_dr, s.snowNow)
 	// Where I live, 40cm of snow on the ground but tarmac is clear
 	// So I just blow all the snow away from the runway for you
