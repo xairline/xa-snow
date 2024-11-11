@@ -35,10 +35,10 @@ type depthMap struct {
 // grib + map service
 type GribService interface {
     IsReady() bool                                          // ready to retrieve values
-	DownloadAndProcessGribFile() error
+	DownloadAndProcessGribFile(sys_time bool, day, month, hour int) error
 	GetSnowDepth(lat, lon float32) float32
 	convertGribToCsv(snow_csv_name, ice_csv_name string)
-	downloadGribFile() (string, error)
+	downloadGribFile(sys_time bool, day, month, hour int) (string, error)
 }
 
 type gribService struct {
@@ -185,7 +185,7 @@ func (g *gribService) GetSnowDepth(lat, lon float32) float32 {
     return g.SnowDm.Get(lon, lat)
 }
 
-func (g *gribService) DownloadAndProcessGribFile() error {
+func (g *gribService) DownloadAndProcessGribFile(sys_time bool, day, month, hour int) error {
     file_override := 0
 
     snow_csv_file := "snod.csv"
@@ -208,7 +208,7 @@ func (g *gribService) DownloadAndProcessGribFile() error {
 
     if (file_override < 2) {
         // download grib file
-        gribFilename, err = g.downloadGribFile()
+        gribFilename, err = g.downloadGribFile(sys_time, day, month, hour)
         if err != nil {
             return err
         }
@@ -286,7 +286,10 @@ func (g *gribService) convertGribToCsv(snow_csv_name, ice_csv_name string) {
 }
 
 
-func (g *gribService) downloadGribFile() (string, error) {
+func (g *gribService) downloadGribFile(sys_time bool, day, month, hour int) (string, error) {
+	g.Logger.Infof("downloadGribFile: Using system time: %t, day: %d, month: %d, hour: %d",
+				   sys_time, day, month, hour)
+
 	url := getDownloadUrl()
 	g.Logger.Infof("Downloading GRIB file from %s", url)
 	// Get today's date in yyyy-mm-dd format
