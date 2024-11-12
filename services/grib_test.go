@@ -3,8 +3,8 @@ package services
 import (
 	"github.com/stretchr/testify/mock"
 	"log"
-	"testing"
 	"os"
+	"testing"
 )
 
 // MockLogger is a mock type for the Logger type
@@ -47,7 +47,6 @@ func (m *MockLogger) Errorf(format string, args ...interface{}) {
 }
 
 func TestDownloadGribFile(t *testing.T) {
-	os.Unsetenv("USE_ICEC_CSV")
 	os.Unsetenv("USE_SNOD_CSV")
 
 	mockLogger := new(MockLogger)
