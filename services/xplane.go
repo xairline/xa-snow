@@ -33,8 +33,9 @@ type xplaneService struct {
 	drefsInited			bool
 
 	lat_dr, lon_dr,
-	snow_dr,
 	weatherMode_dr,
+	sysTime_dr, simCurrentDay_dr, simCurrentMonth_dr, simLocalHours_dr,
+	snow_dr,
 	rwySnowCover_dr 	dataAccess.DataRef
 
 	Logger          	logger.Logger
@@ -45,21 +46,12 @@ type xplaneService struct {
 	snowDepth, snowNow	float32
 }
 
-// some drefs are private and need delayed initialization
+// private drefs need delayed initialization
 func initDrefs(s *xplaneService) bool {
 	if ! s.drefsInited {
 		var res bool
 		success := true
-		s.lat_dr, res = dataAccess.FindDataRef("sim/flightmodel/position/latitude")
-		success = success && res
-
-		s.lon_dr, res = dataAccess.FindDataRef("sim/flightmodel/position/longitude")
-		success = success && res
-
 		s.snow_dr, res = dataAccess.FindDataRef("sim/private/controls/wxr/snow_now")
-		success = success && res
-
-		s.weatherMode_dr, res = dataAccess.FindDataRef("sim/weather/region/weather_source")
 		success = success && res
 
 		s.rwySnowCover_dr, res = dataAccess.FindDataRef("sim/private/controls/twxr/snow_area_width")
@@ -132,24 +124,24 @@ func (s *xplaneService) onPluginStart() {
 	if os.Getenv("OVERRIDE") == "true" {
 		s.override = true
 	}
-	go func() {
-		for {
-			err := gribSvc.DownloadAndProcessGribFile()
-			if err != nil {
-				s.Logger.Errorf("Download grib file failed: %v", err)
-			}
-			// TODO: disabled - auto NOAA update
-			return
-		}
-	}()
+
+	// API drefs are available at plugin start
+	s.lat_dr, _ = dataAccess.FindDataRef("sim/flightmodel/position/latitude")
+	s.lon_dr, _ = dataAccess.FindDataRef("sim/flightmodel/position/longitude")
+	s.weatherMode_dr, _ = dataAccess.FindDataRef("sim/weather/region/weather_source")
+	s.sysTime_dr, _ = dataAccess.FindDataRef("sim/time/use_system_time")
+	s.simCurrentMonth_dr, _ = dataAccess.FindDataRef("sim/cockpit2/clock_timer/current_month")
+	s.simCurrentDay_dr, _ = dataAccess.FindDataRef("sim/cockpit2/clock_timer/current_day")
+	s.simLocalHours_dr, _ = dataAccess.FindDataRef("sim/cockpit2/clock_timer/local_time_hours")
 
 	// start with delay to let the dust settle
-	processing.RegisterFlightLoopCallback(s.flightLoop, 15.0, nil)
+	processing.RegisterFlightLoopCallback(s.flightLoop, 5.0, nil)
 }
 
 func (s *xplaneService) onPluginStop() {
 	s.Logger.Info("Plugin stopped")
 }
+
 
 // flightloop, high freq code!
 func (s *xplaneService) flightLoop(
@@ -159,10 +151,37 @@ func (s *xplaneService) flightLoop(
 	ref interface{},
 ) float32 {
 
-	// delayed init
-	if ! initDrefs(s) {
-		return 5.0
+	// flightloop start is the first point in time where the time datarefs are set correctly
+	if s.loopCnt == 0 {
+		s.loopCnt++;
+		s.Logger.Info("Flightloop starting, kicking off")
+
+		// delayed init
+		if ! initDrefs(s) {
+			return 0	// Bye, if we don't have them by now we will never get them
+		}
+
+		sys_time := dataAccess.GetIntData(s.sysTime_dr) == 1
+		day := dataAccess.GetIntData(s.simCurrentDay_dr)
+		month := dataAccess.GetIntData(s.simCurrentMonth_dr)
+		hour := dataAccess.GetIntData(s.simLocalHours_dr)
+
+		go func() {
+			for {
+				err := gribSvc.DownloadAndProcessGribFile(sys_time, month, day, hour)
+				if err != nil {
+					s.Logger.Errorf("Download grib file failed: %v", err)
+				} else {
+					// TODO: was this looping forever?
+					break
+				}
+				// TODO: disabled - auto NOAA update
+			}
+		}()
+
+		return 10.0
 	}
+
 
 	if !s.override {
 		weatherMode := dataAccess.GetIntData(s.weatherMode_dr)
@@ -178,7 +197,7 @@ func (s *xplaneService) flightLoop(
 
 	// throttle update computations
 	s.loopCnt++
-	if s.loopCnt % 8 == 1 {
+	if s.loopCnt % 8 == 0 {
 		lat := dataAccess.GetFloatData(s.lat_dr)
 		lon := dataAccess.GetFloatData(s.lon_dr)
 		snowDepth_n := s.GribService.GetSnowDepth(lat, lon)
