@@ -37,8 +37,9 @@ type GribService interface {
 	IsReady() bool // ready to retrieve values
 	DownloadAndProcessGribFile(sys_time bool, day, month, hour int) error
 	GetSnowDepth(lat, lon float32) float32
-	convertGribToCsv(snow_csv_name, ice_csv_name string)
+	convertGribToCsv(snow_csv_name string)
 	downloadGribFile(sys_time bool, day, month, hour int) (string, error)
+	getDownloadUrl(sys_time bool, timeUTC time.Time) (string, time.Time, int)
 }
 
 type gribService struct {
@@ -205,7 +206,7 @@ func (g *gribService) DownloadAndProcessGribFile(sys_time bool, month, day, hour
 			return err
 		}
 		// convert grib file to csv files
-		g.convertGribToCsv("snod.csv", "icec.csv")
+		g.convertGribToCsv("snod.csv")
 	}
 
 	g.SnowDm.LoadCsv(snow_csv_file)
@@ -218,10 +219,10 @@ func (g *gribService) DownloadAndProcessGribFile(sys_time bool, month, day, hour
 	return nil
 }
 
-func getDownloadUrl(sys_time bool, timeUTC time.Time) (string, time.Time, int) {
-	fmt.Println("timeUTC:", timeUTC)
+func (g *gribService) getDownloadUrl(sys_time bool, timeUTC time.Time) (string, time.Time, int) {
+	g.Logger.Infof("timeUTC:  %s", timeUTC.String())
 	ctimeUTC := timeUTC.Add(-4*time.Hour - 25*time.Minute) // Adjusted time considering publish delay
-	fmt.Println("ctimeUTC:", ctimeUTC)
+	g.Logger.Infof("ctimeUTC: %s", ctimeUTC.String())
 	cycles := []int{0, 6, 12, 18}
 	var cycle int
 	for _, cycle_ := range cycles {
@@ -240,21 +241,22 @@ func getDownloadUrl(sys_time bool, timeUTC time.Time) (string, time.Time, int) {
 
 	if sys_time {
 		filename := fmt.Sprintf("gfs.t%02dz.pgrb2.0p25.f0%02d", cycle, forecast)
-		fmt.Println("NOAA Filename:", filename, cycle, forecast)
-		url := fmt.Sprintf("https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?dir=%%2Fgfs.%s%%2F%02d%%2Fatmos&file=%s&var_ICEC=on&var_SNOD=on&all_lev=on", cycleDate, cycle, filename)
+		g.Logger.Infof("NOAA Filename: %s, %d, %d", filename, cycle, forecast)
+		url := fmt.Sprintf("https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?dir=%%2Fgfs.%s%%2F%02d%%2Fatmos&file=%s&var_SNOD=on&all_lev=on", cycleDate, cycle, filename)
 		return url, ctimeUTC, cycle
 	} else {
-		filename := fmt.Sprintf("gfs.0p25.%s%02d.f0%02d", cycleDate, cycle, forecast)
-		fmt.Println("GITHUB Filename:", filename, cycle, forecast)
-		url := fmt.Sprintf("https://github.com/xairline/weather-data/releases/tag/daily/%s", filename)
+		forecast = 6	// TODO: for now
+		filename := fmt.Sprintf("gfs.0p25.%s%02d.f0%02d.grib2", cycleDate, cycle, forecast)
+		g.Logger.Infof("GITHUB Filename: %s, %d, %d", filename, cycle, forecast)
+		url := fmt.Sprintf("https://github.com/xairline/weather-data/releases/download/daily/%s", filename)
 		return url, ctimeUTC, cycle
 	}
 
 	//return fmt.Sprintf("https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gfs.%s/%02d/atmos/%s", cycleDate, cycle, filename)
 }
 
-func (g *gribService) convertGribToCsv(snow_csv_name, ice_csv_name string) {
-	g.Logger.Infof("Pre-processing GRIB file to CSV: '%s' and '%s'", snow_csv_name, ice_csv_name)
+func (g *gribService) convertGribToCsv(snow_csv_name string) {
+	g.Logger.Infof("Pre-processing GRIB file to CSV: '%s'", snow_csv_name)
 	//get current OS
 	myOs := runtime.GOOS
 	var executablePath string
@@ -276,11 +278,6 @@ func (g *gribService) convertGribToCsv(snow_csv_name, ice_csv_name string) {
 		g.Logger.Errorf("Error converting grib file: %v", err)
 	}
 
-	cmd = exec.Command(executablePath, "-s", "-lola", "0:3600:0.1", "-90:1800:0.1", ice_csv_name, "spread", g.gribFilePath, "-match_fs", "ICEC")
-	err = g.exec(cmd)
-	if err != nil {
-		g.Logger.Errorf("Error converting grib file: %v", err)
-	}
 	g.Logger.Info("Pre-processing GRIB file to CSV: Done")
 }
 
@@ -308,7 +305,7 @@ func (g *gribService) downloadGribFile(sys_time bool, day, month, hour int) (str
 		timeUTC = time.Date(year, time.Month(month), day, hour, 0, 0, 0, loc).UTC()
 	}
 
-	url, ctimeUTC, cycle := getDownloadUrl(sys_time, timeUTC)
+	url, ctimeUTC, cycle := g.getDownloadUrl(sys_time, timeUTC)
 	g.Logger.Infof("Downloading GRIB file from %s", url)
 	// Get today's date in yyyy-mm-dd format
 	today := ctimeUTC.Format("2006-01-02")
