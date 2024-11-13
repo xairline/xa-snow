@@ -199,7 +199,7 @@ func (g *gribService) DownloadAndProcessGribFile(sys_time bool, month, day, hour
 	var gribFilename string
 	var err error
 
-	if file_override < 2 {
+	if file_override < 1 {
 		// download grib file
 		gribFilename, err = g.downloadGribFile(sys_time, day, month, hour)
 		if err != nil {
