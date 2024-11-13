@@ -21,37 +21,40 @@ local alpha = 4
 local snow_depth = 0
 
 function sn_legacy(snow_depth)
-        local v = 1.25
-        if snow_depth > 0.001 then
-            v = 1.05 - 1.127 * math.pow(snow_depth, 0.102)
-            local cut_off = 0.08
-            if v < cut_off then v = cut_off end
+    local v = 1.25
+    if snow_depth > 0.001 then
+        v = 1.05 - 1.127 * math.pow(snow_depth, 0.102)
+        local cut_off = 0.08
+        if v < cut_off then
+            v = cut_off
         end
+    end
 end
 
 function sn_new(snow_depth)
-		if snow_depth >= 1.0 then
-			return 0.03
-		end
-		
-		if snow_depth == 0.0 then
-			return 1.2
-		end
-		
-		local sd = {0.00, 0.005, 0.01, 0.02, 0.03, 0.05, 0.10, 0.20, 0.40, 2.00 }
-		local sn = {1.10, 0.950, 0.90, 0.70, 0.60, 0.30, 0.15, 0.06, 0.04, 0.02 }
-	
-		for i, sd0 in pairs(sd) do
-			sd1 = sd[i + 1]
-			if sd0 <= snow_depth and snow_depth < sd1 then
-				--logMsg(string.format("i: %d, sd0: %f", i, sd0))
-				local x = (snow_depth - sd0) / (sd1 - sd0)
-				v = sn[i] + x * (sn[i+1] - sn[i])
-				return v
-			end
-		end
-		
-		logMsg("Should never happen")
+    if snow_depth >= 1.0 then
+        return 0.03
+    end
+
+    if snow_depth == 0.0 then
+        return 1.2
+    end
+
+    local sd = { 0.01, 0.02, 0.03, 0.05, 0.10, 0.20, 0.40 }
+    local sn = { 0.90, 0.70, 0.60, 0.30, 0.15, 0.06, 0.04 }
+    local snaw = { 1.60, 1.41, 0.00, 0.52, 0.24, 0.14, 0.02 }
+    for i, sd0 in pairs(sd) do
+        sd1 = sd[i + 1]
+        if sd0 <= snow_depth and snow_depth < sd1 then
+            --logMsg(string.format("i: %d, sd0: %f", i, sd0))
+            local x = (snow_depth - sd0) / (sd1 - sd0)
+            v = sn[i] + x * (sn[i + 1] - sn[i])
+            v2 = sn[i] + x * (snaw[i + 1] - snaw[i])
+            return v, v2
+        end
+    end
+
+    logMsg("Should never happen")
 end
 
 function win_build(wnd, x, y)
@@ -61,7 +64,7 @@ function win_build(wnd, x, y)
         end
         snow_depth = 0.0
     end
- 
+
     for i, dr in pairs(drefs) do
         local val = get(dr.dref)
         local changed, new_val = imgui.SliderFloat(dr.dref, val, 0.0, dr.max, "%0.3f")
@@ -75,8 +78,9 @@ function win_build(wnd, x, y)
     local changed_s, changed_a
     changed_s, snow_depth = imgui.SliderFloat("Snow depth (m)", snow_depth, 0.0, 2.0, "%0.3f")
     if changed_s then
-		local v =sn_new(snow_depth)
+        local v, v2 = sn_new(snow_depth)
         set("sim/private/controls/wxr/snow_now", v)
+        set("sim/private/controls/wxr/snow_area_width", v2)
     end
 end
 
@@ -92,8 +96,6 @@ end
 function win_close(wnd)
     set("sim/private/controls/twxr/override", 0)
 end
-
-
 
 for i, dr in pairs(drefs) do
     dr.default = get(dr.dref)

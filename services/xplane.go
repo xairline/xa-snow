@@ -27,28 +27,28 @@ type XplaneService interface {
 }
 
 type xplaneService struct {
-	Plugin          	*extra.XPlanePlugin
-	GribService     	GribService
-	p2x					Phys2XPlane
-	drefsInited			bool
+	Plugin      *extra.XPlanePlugin
+	GribService GribService
+	p2x         Phys2XPlane
+	drefsInited bool
 
 	lat_dr, lon_dr,
 	weatherMode_dr,
 	sysTime_dr, simCurrentDay_dr, simCurrentMonth_dr, simLocalHours_dr,
 	snow_dr,
-	rwySnowCover_dr 	dataAccess.DataRef
+	rwySnowCover_dr dataAccess.DataRef
 
-	Logger          	logger.Logger
-	disabled        	bool
-	override        	bool
+	Logger   logger.Logger
+	disabled bool
+	override bool
 
-	loopCnt				uint32
-	snowDepth, snowNow	float32
+	loopCnt                          uint32
+	snowDepth, snowNow, rwySnowCover float32
 }
 
 // private drefs need delayed initialization
 func initDrefs(s *xplaneService) bool {
-	if ! s.drefsInited {
+	if !s.drefsInited {
 		var res bool
 		success := true
 		s.snow_dr, res = dataAccess.FindDataRef("sim/private/controls/wxr/snow_now")
@@ -85,7 +85,7 @@ func NewXplaneService(
 			GribService: NewGribService(logger,
 				utilities.GetSystemPath(),
 				filepath.Join(utilities.GetSystemPath(), "Resources", "plugins", "XA-snow", "bin")),
-			p2x : NewPhys2XPlane(logger),
+			p2x:      NewPhys2XPlane(logger),
 			Logger:   logger,
 			disabled: false,
 			override: false,
@@ -142,7 +142,6 @@ func (s *xplaneService) onPluginStop() {
 	s.Logger.Info("Plugin stopped")
 }
 
-
 // flightloop, high freq code!
 func (s *xplaneService) flightLoop(
 	elapsedSinceLastCall,
@@ -153,12 +152,12 @@ func (s *xplaneService) flightLoop(
 
 	// flightloop start is the first point in time where the time datarefs are set correctly
 	if s.loopCnt == 0 {
-		s.loopCnt++;
+		s.loopCnt++
 		s.Logger.Info("Flightloop starting, kicking off")
 
 		// delayed init
-		if ! initDrefs(s) {
-			return 0	// Bye, if we don't have them by now we will never get them
+		if !initDrefs(s) {
+			return 0 // Bye, if we don't have them by now we will never get them
 		}
 
 		sys_time := dataAccess.GetIntData(s.sysTime_dr) == 1
@@ -182,7 +181,6 @@ func (s *xplaneService) flightLoop(
 		return 10.0
 	}
 
-
 	if !s.override {
 		weatherMode := dataAccess.GetIntData(s.weatherMode_dr)
 		if weatherMode != 1 {
@@ -197,34 +195,30 @@ func (s *xplaneService) flightLoop(
 
 	// throttle update computations
 	s.loopCnt++
-	if s.loopCnt % 8 == 0 {
+	if s.loopCnt%8 == 0 {
 		lat := dataAccess.GetFloatData(s.lat_dr)
 		lon := dataAccess.GetFloatData(s.lon_dr)
 		snowDepth_n := s.GribService.GetSnowDepth(lat, lon)
 
 		// some exponential smoothing
 		const alpha = float32(0.7)
-		s.snowDepth = alpha *  snowDepth_n + (1 - alpha) * s.snowDepth
+		s.snowDepth = alpha*snowDepth_n + (1-alpha)*s.snowDepth
 
 		// If we have no accumulated snow leave the datarefs alone and let X-Plane do its weather effects
 		if s.snowDepth < 0.001 {
 			return -1
 		}
 
-		s.snowNow = s.p2x.SnowDepthToXplaneSnowNow(s.snowDepth)
+		s.snowNow, s.rwySnowCover = s.p2x.SnowDepthToXplaneSnowNow(s.snowDepth)
 	}
 
 	// If we have no accumulated snow leave the datarefs alone and let X-Plane do its weather effects
-	if s.snowDepth < 0.001 {
+	if s.snowDepth < 0.001 && !s.override {
 		return -1
 	}
 
 	dataAccess.SetFloatData(s.snow_dr, s.snowNow)
-	// Where I live, 40cm of snow on the ground but tarmac is clear
-	// So I just blow all the snow away from the runway for you
-	// consider this as a feature and not a bug
-	// TODO: make this configurable
-	dataAccess.SetFloatData(s.rwySnowCover_dr, 0)
+	dataAccess.SetFloatData(s.rwySnowCover_dr, s.rwySnowCover)
 
 	return -1
 }

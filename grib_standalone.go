@@ -3,9 +3,9 @@
 package main
 
 import (
-    "fmt"
-    "time"
-    "github.com/xairline/xa-snow/services"
+	"fmt"
+	"github.com/xairline/xa-snow/services"
+	"time"
 )
 
 // MyLogger is a mock type for the Logger type
@@ -18,7 +18,7 @@ func (m *MyLogger) Info(msg string) {
 }
 
 func (m *MyLogger) Debugf(format string, a ...interface{}) {
-    fmt.Println("Debug:", fmt.Sprintf(format, a...))
+	fmt.Println("Debug:", fmt.Sprintf(format, a...))
 }
 
 func (m *MyLogger) Debug(msg string) {
@@ -30,7 +30,7 @@ func (m *MyLogger) Error(msg string) {
 }
 
 func (m *MyLogger) Warningf(format string, a ...interface{}) {
-    fmt.Println("Warning:", fmt.Sprintf(format, a...))
+	fmt.Println("Warning:", fmt.Sprintf(format, a...))
 }
 
 func (m *MyLogger) Warning(msg string) {
@@ -38,39 +38,51 @@ func (m *MyLogger) Warning(msg string) {
 }
 
 func (m *MyLogger) Infof(format string, a ...interface{}) {
-    fmt.Println("Info:", fmt.Sprintf(format, a...))
+	fmt.Println("Info:", fmt.Sprintf(format, a...))
 }
 
 func (m *MyLogger) Errorf(format string, a ...interface{}) {
-    fmt.Println("Error:", fmt.Sprintf(format, a...))
+	fmt.Println("Error:", fmt.Sprintf(format, a...))
 }
 
 func main() {
 	Logger := new(MyLogger)
-    Logger.Info("startup")
+	Logger.Info("startup")
 	gs := services.NewGribService(Logger, ".", "bin")
 	//_ = gs.DownloadAndProcessGribFile(true, 0, 0, 0)
 	_ = gs.DownloadAndProcessGribFile(false, 01, 03, 18)
 
 	p2s := services.NewPhys2XPlane(Logger)
-	
-    for ! gs.IsReady() {
-        Logger.Info("waiting for ready")
-        time.Sleep(1)
-    }
+
+	for !gs.IsReady() {
+		Logger.Info("waiting for ready")
+		time.Sleep(1)
+	}
 
 	s := gs.GetSnowDepth(51.418441, 9.387076)
-    Logger.Infof("s = %0.2f", p2s.SnowDepthToXplaneSnowNow(s))
+	sd, saw := p2s.SnowDepthToXplaneSnowNow(s)
+	Logger.Infof("s = %0.2f, saw = %0.2f", sd, saw)
+
 	s = gs.GetSnowDepth(51.48, 9.387076)
-    Logger.Infof("s = %0.2f", p2s.SnowDepthToXplaneSnowNow(s))
+	sd, saw = p2s.SnowDepthToXplaneSnowNow(s)
+	Logger.Infof("s = %0.2f, saw = %0.2f", sd, saw)
+
 	s = gs.GetSnowDepth(51.51, 9.37)
-    Logger.Infof("s = %0.2f", p2s.SnowDepthToXplaneSnowNow(s))
-	s = gs.GetSnowDepth(51.418441, 9.42)    // to the east
-    Logger.Infof("s = %0.2f", p2s.SnowDepthToXplaneSnowNow(s))
+	sd, saw = p2s.SnowDepthToXplaneSnowNow(s)
+	Logger.Infof("s = %0.2f, saw = %0.2f", sd, saw)
+
+	s = gs.GetSnowDepth(51.418441, 9.42) // to the east
+	sd, saw = p2s.SnowDepthToXplaneSnowNow(s)
+	Logger.Infof("s = %0.2f, saw = %0.2f", sd, saw)
+
 	s = gs.GetSnowDepth(51.5, 9.38)
-    Logger.Infof("s = %0.2f", p2s.SnowDepthToXplaneSnowNow(s))
+	sd, saw = p2s.SnowDepthToXplaneSnowNow(s)
+	Logger.Infof("s = %0.2f, saw = %0.2f", sd, saw)
+
 	s = gs.GetSnowDepth(51.51, 9.38)
-    Logger.Infof("s = %0.2f", p2s.SnowDepthToXplaneSnowNow(s))
+	sd, saw = p2s.SnowDepthToXplaneSnowNow(s)
+	Logger.Infof("s = %0.2f, saw = %0.2f", sd, saw)
+
 	fmt.Println("-----------------------------------------")
 	s = gs.GetSnowDepth(51.49, 9.37)
 	s = gs.GetSnowDepth(51.50, 9.37)
