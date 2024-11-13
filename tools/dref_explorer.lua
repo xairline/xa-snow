@@ -32,12 +32,12 @@ function sn_legacy(snow_depth)
 end
 
 function sn_new(snow_depth)
-    if snow_depth >= 1.0 then
-        return 0.03
+    if snow_depth >= 0.4 then
+        return 0.04, 0.11
     end
 
-    if snow_depth == 0.0 then
-        return 1.2
+    if snow_depth <= 0.01 then
+        return 1.2, 0.25
     end
 
     local sd = { 0.01, 0.02, 0.03, 0.05, 0.10, 0.20, 0.40 }
@@ -49,12 +49,12 @@ function sn_new(snow_depth)
             --logMsg(string.format("i: %d, sd0: %f", i, sd0))
             local x = (snow_depth - sd0) / (sd1 - sd0)
             v = sn[i] + x * (sn[i + 1] - sn[i])
-            v2 = sn[i] + x * (snaw[i + 1] - snaw[i])
+            v2 = snaw[i] + x * (snaw[i + 1] - snaw[i])
             return v, v2
         end
     end
 
-    logMsg("Should never happen")
+    logMsg(string.format("Should never happen: %f", snow_depth))
 end
 
 function win_build(wnd, x, y)
@@ -80,7 +80,7 @@ function win_build(wnd, x, y)
     if changed_s then
         local v, v2 = sn_new(snow_depth)
         set("sim/private/controls/wxr/snow_now", v)
-        set("sim/private/controls/wxr/snow_area_width", v2)
+        set("sim/private/controls/twxr/snow_area_width", v2)
     end
 end
 
