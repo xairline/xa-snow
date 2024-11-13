@@ -24,18 +24,26 @@ func NewPhys2XPlane(logger logger.Logger) Phys2XPlane {
 // convert snow depth from grib(m) to xplane snow_now
 // interpolation table
 var (
-	sd_tab   = []float32{0.01, 0.02, 0.03, 0.05, 0.10, 0.20, 0.40} // depth
-	sn_tab   = []float32{0.90, 0.70, 0.60, 0.30, 0.15, 0.06, 0.04} // snowNow
-	snaw_tab = []float32{1.60, 1.41, 1.20, 0.52, 0.24, 0.14, 0.02}
+	sd_tab_lower_limit float32 = 0.01
+	sd_tab_upper_limit float32 = 0.40
+	sd_tab                     = []float32{sd_tab_lower_limit, 0.02, 0.03, 0.05, 0.10, 0.20, sd_tab_upper_limit} // depth
+
+	sn_tab_lower_limit float32 = 0.04
+	sn_tab_upper_limit float32 = 0.90
+	sn_tab                     = []float32{sn_tab_upper_limit, 0.70, 0.60, 0.30, 0.15, 0.06, sn_tab_lower_limit} // snowNow
+
+	snaw_tab_lower_limit float32 = 0.09
+	snaw_tab_upper_limit float32 = 1.60
+	snaw_tab                     = []float32{snaw_tab_upper_limit, 1.41, 1.20, 0.52, 0.24, 0.14, snaw_tab_lower_limit}
 )
 
 func (p2x *phys2XPlane) SnowDepthToXplaneSnowNow(depth float32) (float32, float32) {
-	if depth >= 0.4 {
-		return 0.04, 0.11
+	if depth >= sd_tab_upper_limit {
+		return sn_tab_lower_limit, snaw_tab_lower_limit
 	}
 
-	if depth <= 0.01 {
-		return 1.2, 0
+	if depth <= sd_tab_lower_limit {
+		return sn_tab_upper_limit, snaw_tab_upper_limit
 	}
 
 	// piecewise linear interpolation
