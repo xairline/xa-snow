@@ -26,7 +26,7 @@ func NewPhys2XPlane(logger logger.Logger) Phys2XPlane {
 var (
 	sd_tab   = []float32{0.01, 0.02, 0.03, 0.05, 0.10, 0.20, 0.40} // depth
 	sn_tab   = []float32{0.90, 0.70, 0.60, 0.30, 0.15, 0.06, 0.04} // snowNow
-	snaw_tab = []float32{1.60, 1.41, 0.00, 0.52, 0.24, 0.14, 0.02}
+	snaw_tab = []float32{1.60, 1.41, 1.20, 0.52, 0.24, 0.14, 0.02}
 )
 
 func (p2x *phys2XPlane) SnowDepthToXplaneSnowNow(depth float32) (float32, float32) {

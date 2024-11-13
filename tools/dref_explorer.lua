@@ -42,7 +42,7 @@ function sn_new(snow_depth)
 
     local sd = { 0.01, 0.02, 0.03, 0.05, 0.10, 0.20, 0.40 }
     local sn = { 0.90, 0.70, 0.60, 0.30, 0.15, 0.06, 0.04 }
-    local snaw = { 1.60, 1.41, 0.00, 0.52, 0.24, 0.14, 0.02 }
+    local snaw = { 1.60, 1.41, 1.20, 0.52, 0.24, 0.14, 0.02 }
     for i, sd0 in pairs(sd) do
         sd1 = sd[i + 1]
         if sd0 <= snow_depth and snow_depth < sd1 then
