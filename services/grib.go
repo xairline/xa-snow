@@ -37,6 +37,7 @@ type GribService interface {
 	IsReady() bool // ready to retrieve values
 	DownloadAndProcessGribFile(sys_time bool, day, month, hour int) error
 	GetSnowDepth(lat, lon float32) float32
+	GetSnowDepthFlight(lat, lon, hdg, height, visibility float32) float32
 	convertGribToCsv(snow_csv_name string)
 	downloadGribFile(sys_time bool, day, month, hour int) (string, error)
 	getDownloadUrl(sys_time bool, timeUTC time.Time) (string, time.Time, int)
@@ -48,6 +49,8 @@ type gribService struct {
 	gribFileFolder string
 	binPath        string
 	SnowDm         *depthMap
+
+	log_ts		   int64		// for throttling of logging
 }
 
 // load csv file into depth map
@@ -183,6 +186,18 @@ func (g *gribService) IsReady() bool {
 
 func (g *gribService) GetSnowDepth(lat, lon float32) float32 {
 	return g.SnowDm.Get(lon, lat)
+}
+
+// EXPERIMENTAL get snow depth with flight params
+func (g *gribService) GetSnowDepthFlight(lat, lon, hdg, height, visibility float32) float32 {
+	now := time.Now()
+	nowUnix := now.Unix()
+	if  nowUnix > g.log_ts {
+		g.Logger.Infof("hdg: %0.1f, height: %0.1f, visibility: %0.1f", hdg, height, visibility)
+		g.log_ts = nowUnix + 5
+	}
+
+	return g.GetSnowDepth(lat, lon)
 }
 
 func (g *gribService) DownloadAndProcessGribFile(sys_time bool, month, day, hour int) error {

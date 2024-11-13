@@ -35,6 +35,7 @@ type xplaneService struct {
 	lat_dr, lon_dr,
 	weatherMode_dr,
 	sysTime_dr, simCurrentDay_dr, simCurrentMonth_dr, simLocalHours_dr,
+	truePsi_dr, yAGL_dr, visibility_dr,
 	snow_dr,
 	rwySnowCover_dr 	dataAccess.DataRef
 
@@ -133,6 +134,9 @@ func (s *xplaneService) onPluginStart() {
 	s.simCurrentMonth_dr, _ = dataAccess.FindDataRef("sim/cockpit2/clock_timer/current_month")
 	s.simCurrentDay_dr, _ = dataAccess.FindDataRef("sim/cockpit2/clock_timer/current_day")
 	s.simLocalHours_dr, _ = dataAccess.FindDataRef("sim/cockpit2/clock_timer/local_time_hours")
+	s.truePsi_dr, _ = dataAccess.FindDataRef("sim/flightmodel2/position/true_psi")
+	s.yAGL_dr, _ = dataAccess.FindDataRef("sim/flightmodel2/position/y_agl")
+	s.visibility_dr, _ = dataAccess.FindDataRef("sim/graphics/view/visibility_effective_m")
 
 	// start with delay to let the dust settle
 	processing.RegisterFlightLoopCallback(s.flightLoop, 5.0, nil)
@@ -200,7 +204,10 @@ func (s *xplaneService) flightLoop(
 	if s.loopCnt % 8 == 0 {
 		lat := dataAccess.GetFloatData(s.lat_dr)
 		lon := dataAccess.GetFloatData(s.lon_dr)
-		snowDepth_n := s.GribService.GetSnowDepth(lat, lon)
+		hdg := dataAccess.GetFloatData(s.truePsi_dr)
+		height := dataAccess.GetFloatData(s.yAGL_dr)
+		visibility := dataAccess.GetFloatData(s.visibility_dr)
+		snowDepth_n := s.GribService.GetSnowDepthFlight(lat, lon, hdg, height, visibility)
 
 		// some exponential smoothing
 		const alpha = float32(0.7)
