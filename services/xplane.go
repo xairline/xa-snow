@@ -205,7 +205,7 @@ func (s *xplaneService) flightLoop(
 		s.snowDepth = alpha*snowDepth_n + (1-alpha)*s.snowDepth
 
 		// If we have no accumulated snow leave the datarefs alone and let X-Plane do its weather effects
-		if s.snowDepth < 0.001 {
+		if s.snowDepth < 0.001 && !s.override {
 			return -1
 		}
 
