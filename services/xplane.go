@@ -8,6 +8,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/xairline/goplane/extra"
 	"github.com/xairline/goplane/xplm/dataAccess"
+	"github.com/xairline/goplane/xplm/plugins"
 	"github.com/xairline/goplane/xplm/processing"
 	"github.com/xairline/goplane/xplm/utilities"
 	"github.com/xairline/xa-snow/utils/logger"
@@ -42,7 +43,7 @@ type xplaneService struct {
 	disabled bool
 	override bool
 
-	loopCnt                          uint32
+	loopCnt                                  uint32
 	snowDepth, snowNow, iceNow, rwySnowCover float32
 }
 
@@ -94,6 +95,7 @@ func NewXplaneService(
 			override: false,
 		}
 		xplaneSvc.Plugin.SetPluginStateCallback(xplaneSvc.onPluginStateChanged)
+		xplaneSvc.Plugin.SetMessageHandler(xplaneSvc.messageHandler)
 		return xplaneSvc
 	}
 }
@@ -139,6 +141,7 @@ func (s *xplaneService) onPluginStart() {
 
 	// start with delay to let the dust settle
 	processing.RegisterFlightLoopCallback(s.flightLoop, 5.0, nil)
+
 }
 
 func (s *xplaneService) onPluginStop() {
@@ -225,4 +228,11 @@ func (s *xplaneService) flightLoop(
 	dataAccess.SetFloatData(s.ice_dr, s.iceNow)
 
 	return -1
+}
+
+func (s *xplaneService) messageHandler(message plugins.Message) {
+	if message.MessageId == plugins.MSG_PLANE_LOADED || message.MessageId == plugins.MSG_SCENERY_LOADED {
+		s.Logger.Info("Plane/Scenery loaded")
+		s.loopCnt = 0 // reset loop counter so we download the new grib files
+	}
 }
