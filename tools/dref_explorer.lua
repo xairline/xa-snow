@@ -32,29 +32,44 @@ function sn_legacy(snow_depth)
 end
 
 function sn_new(snow_depth)
-    if snow_depth >= 0.4 then
-        return 0.04, 0.11
+    local snowDepthTabLowerLimit = 0.01
+    local snowDepthTabUpperLimit = 0.25
+    local snowNowTabLowerLimit = 0.05
+    local snowNowTabUpperLimit = 0.90
+    local snowAreaWidthTabLowerLimit = 0.25
+    local snowAreaWidthTabUpperLimit = 0.33
+
+    if snow_depth >= snowDepthTabUpperLimit then
+        return snowNowTabLowerLimit, snowAreaWidthTabUpperLimit -- snowAreaWidthTabLowerLimit
     end
 
-    if snow_depth <= 0.01 then
-        return 1.2, 0.25
+    if snow_depth <= snowDepthTabLowerLimit then
+        return 1.2, snowAreaWidthTabLowerLimit -- snowAreaWidthTabUpperLimit
     end
 
-    local sd = { 0.01, 0.02, 0.03, 0.05, 0.10, 0.20, 0.40 }
-    local sn = { 0.90, 0.70, 0.60, 0.30, 0.15, 0.06, 0.04 }
-    local snaw = { 1.60, 1.41, 1.20, 0.52, 0.24, 0.14, 0.02 }
-    for i, sd0 in pairs(sd) do
-        sd1 = sd[i + 1]
+    local snowDepthTab = { snowDepthTabLowerLimit, 0.02, 0.03, 0.05, 0.10, 0.20, snowDepthTabUpperLimit }
+    local snowNowTab = { snowNowTabUpperLimit, 0.70, 0.60, 0.30, 0.15, 0.06, snowNowTabLowerLimit }
+    local snowAreaWidthTab = { snowAreaWidthTabUpperLimit, snowAreaWidthTabLowerLimit, snowAreaWidthTabLowerLimit, snowAreaWidthTabLowerLimit, snowAreaWidthTabLowerLimit, 0.29, snowAreaWidthTabLowerLimit }
+
+    local snowNowValue = 1.2
+    local snowAreaWidthValue = 0.25
+
+    for i = 1, #snowDepthTab - 1 do
+        local sd0 = snowDepthTab[i]
+        local sd1 = snowDepthTab[i + 1]
         if sd0 <= snow_depth and snow_depth < sd1 then
-            --logMsg(string.format("i: %d, sd0: %f", i, sd0))
             local x = (snow_depth - sd0) / (sd1 - sd0)
-            v = sn[i] + x * (sn[i + 1] - sn[i])
-            v2 = snaw[i] + x * (snaw[i + 1] - snaw[i])
-            return v, v2
+            snowNowValue = snowNowTab[i] + x * (snowNowTab[i + 1] - snowNowTab[i])
+
+            -- Apply snow area width interpolation only when we have more than 20cm of snow
+            if snow_depth >= 0.20 then
+                snowAreaWidthValue = snowAreaWidthTab[i] + x * (snowAreaWidthTab[i + 1] - snowAreaWidthTab[i])
+            end
+            break
         end
     end
 
-    logMsg(string.format("Should never happen: %f", snow_depth))
+    return snowNowValue, snowAreaWidthValue
 end
 
 function win_build(wnd, x, y)
