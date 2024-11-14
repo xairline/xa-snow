@@ -60,28 +60,28 @@ func main() {
 	}
 
 	s := gs.GetSnowDepth(51.418441, 9.387076)
-	sd, saw := p2s.SnowDepthToXplaneSnowNow(s)
-	Logger.Infof("s = %0.2f, saw = %0.2f", sd, saw)
+	sd, saw, icen := p2s.SnowDepthToXplaneSnowNow(s)
+	Logger.Infof("s = %0.2f, saw = %0.2f, icen = %0.2f", sd, saw, icen)
 
 	s = gs.GetSnowDepth(51.48, 9.387076)
-	sd, saw = p2s.SnowDepthToXplaneSnowNow(s)
-	Logger.Infof("s = %0.2f, saw = %0.2f", sd, saw)
+	sd, saw, icen = p2s.SnowDepthToXplaneSnowNow(s)
+	Logger.Infof("s = %0.2f, saw = %0.2f, icen = %0.2f", sd, saw, icen)
 
 	s = gs.GetSnowDepth(51.51, 9.37)
-	sd, saw = p2s.SnowDepthToXplaneSnowNow(s)
-	Logger.Infof("s = %0.2f, saw = %0.2f", sd, saw)
+	sd, saw, icen = p2s.SnowDepthToXplaneSnowNow(s)
+	Logger.Infof("s = %0.2f, saw = %0.2f, icen = %0.2f", sd, saw, icen)
 
 	s = gs.GetSnowDepth(51.418441, 9.42) // to the east
-	sd, saw = p2s.SnowDepthToXplaneSnowNow(s)
-	Logger.Infof("s = %0.2f, saw = %0.2f", sd, saw)
+	sd, saw, icen = p2s.SnowDepthToXplaneSnowNow(s)
+	Logger.Infof("s = %0.2f, saw = %0.2f, icen = %0.2f", sd, saw, icen)
 
 	s = gs.GetSnowDepth(51.5, 9.38)
-	sd, saw = p2s.SnowDepthToXplaneSnowNow(s)
-	Logger.Infof("s = %0.2f, saw = %0.2f", sd, saw)
+	sd, saw, icen = p2s.SnowDepthToXplaneSnowNow(s)
+	Logger.Infof("s = %0.2f, saw = %0.2f, icen = %0.2f", sd, saw, icen)
 
 	s = gs.GetSnowDepth(51.51, 9.38)
-	sd, saw = p2s.SnowDepthToXplaneSnowNow(s)
-	Logger.Infof("s = %0.2f, saw = %0.2f", sd, saw)
+	sd, saw, icen = p2s.SnowDepthToXplaneSnowNow(s)
+	Logger.Infof("s = %0.2f, saw = %0.2f, icen = %0.2f", sd, saw, icen)
 
 	fmt.Println("-----------------------------------------")
 	s = gs.GetSnowDepth(51.49, 9.37)

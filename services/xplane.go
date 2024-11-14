@@ -35,7 +35,7 @@ type xplaneService struct {
 	lat_dr, lon_dr,
 	weatherMode_dr,
 	sysTime_dr, simCurrentDay_dr, simCurrentMonth_dr, simLocalHours_dr,
-	snow_dr,
+	snow_dr, ice_dr,
 	rwySnowCover_dr dataAccess.DataRef
 
 	Logger   logger.Logger
@@ -43,7 +43,7 @@ type xplaneService struct {
 	override bool
 
 	loopCnt                          uint32
-	snowDepth, snowNow, rwySnowCover float32
+	snowDepth, snowNow, iceNow, rwySnowCover float32
 }
 
 // private drefs need delayed initialization
@@ -52,6 +52,9 @@ func initDrefs(s *xplaneService) bool {
 		var res bool
 		success := true
 		s.snow_dr, res = dataAccess.FindDataRef("sim/private/controls/wxr/snow_now")
+		success = success && res
+
+		s.ice_dr, res = dataAccess.FindDataRef("sim/private/controls/wxr/ice_now")
 		success = success && res
 
 		s.rwySnowCover_dr, res = dataAccess.FindDataRef("sim/private/controls/twxr/snow_area_width")
@@ -205,11 +208,11 @@ func (s *xplaneService) flightLoop(
 		s.snowDepth = alpha*snowDepth_n + (1-alpha)*s.snowDepth
 
 		// If we have no accumulated snow leave the datarefs alone and let X-Plane do its weather effects
-		if s.snowDepth < 0.001 {
+		if s.snowDepth < 0.001 && !s.override {
 			return -1
 		}
 
-		s.snowNow, s.rwySnowCover = s.p2x.SnowDepthToXplaneSnowNow(s.snowDepth)
+		s.snowNow, s.rwySnowCover, s.iceNow = s.p2x.SnowDepthToXplaneSnowNow(s.snowDepth)
 	}
 
 	// If we have no accumulated snow leave the datarefs alone and let X-Plane do its weather effects
@@ -219,6 +222,7 @@ func (s *xplaneService) flightLoop(
 
 	dataAccess.SetFloatData(s.snow_dr, s.snowNow)
 	dataAccess.SetFloatData(s.rwySnowCover_dr, s.rwySnowCover)
+	dataAccess.SetFloatData(s.ice_dr, s.iceNow)
 
 	return -1
 }
