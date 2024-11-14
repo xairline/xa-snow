@@ -218,7 +218,7 @@ func (s *xplaneService) flightLoop(
 	}
 
 	dataAccess.SetFloatData(s.snow_dr, s.snowNow)
-	dataAccess.SetFloatData(s.rwySnowCover_dr, 0)
+	dataAccess.SetFloatData(s.rwySnowCover_dr, s.rwySnowCover)
 
 	return -1
 }
