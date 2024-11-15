@@ -8,6 +8,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/xairline/goplane/extra"
 	"github.com/xairline/goplane/xplm/dataAccess"
+	"github.com/xairline/goplane/xplm/menus"
 	"github.com/xairline/goplane/xplm/plugins"
 	"github.com/xairline/goplane/xplm/processing"
 	"github.com/xairline/goplane/xplm/utilities"
@@ -15,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"sync"
 )
 
@@ -45,6 +47,11 @@ type xplaneService struct {
 
 	loopCnt                                  uint32
 	snowDepth, snowNow, iceNow, rwySnowCover float32
+
+	myMenuId        menus.MenuID
+	myMenuItemIndex int
+
+	configFilePath string
 }
 
 // private drefs need delayed initialization
@@ -121,8 +128,8 @@ func (s *xplaneService) onPluginStart() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	systemPath := utilities.GetSystemPath()
-	pluginPath := filepath.Join(systemPath, "Resources", "plugins", "XA-snow")
-	err := godotenv.Load(filepath.Join(pluginPath, "config"))
+	s.configFilePath = filepath.Join(systemPath, "Output", "preferences", "xa-snow.prf")
+	err := godotenv.Load(s.configFilePath)
 	if err != nil {
 		s.Logger.Errorf("Some error occured. Err: %s", err)
 	}
@@ -141,6 +148,17 @@ func (s *xplaneService) onPluginStart() {
 
 	// start with delay to let the dust settle
 	processing.RegisterFlightLoopCallback(s.flightLoop, 5.0, nil)
+
+	// setup menu
+	menuId := menus.FindPluginsMenu()
+	menuContainerId := menus.AppendMenuItem(menuId, "X Airline Snow", 0, false)
+	s.myMenuId = menus.CreateMenu("X Airline Snow", menuId, menuContainerId, s.menuHandler, nil)
+	s.myMenuItemIndex = menus.AppendMenuItem(s.myMenuId, "Toggle Override", 0, true)
+	if s.override {
+		menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex, menus.Menu_Checked)
+	} else {
+		menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex, menus.Menu_Unchecked)
+	}
 
 }
 
@@ -235,4 +253,24 @@ func (s *xplaneService) messageHandler(message plugins.Message) {
 		s.Logger.Info("Plane/Scenery loaded")
 		s.loopCnt = 0 // reset loop counter so we download the new grib files
 	}
+}
+
+func (s *xplaneService) menuHandler(menuRef interface{}, itemRef interface{}) {
+	s.override = !s.override
+
+	if s.override {
+		menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex, menus.Menu_Checked)
+	} else {
+		menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex, menus.Menu_Unchecked)
+	}
+
+	// write to config
+	err := godotenv.Write(map[string]string{
+		"OVERRIDE": strconv.FormatBool(s.override),
+	}, s.configFilePath)
+	if err != nil {
+		s.Logger.Errorf("Error writing to config: %v", err)
+	}
+
+	s.Logger.Infof("Override: %v", s.override)
 }
