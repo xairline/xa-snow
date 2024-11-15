@@ -8,13 +8,13 @@ mac:
 	GOOS=darwin \
 	GOARCH=arm64 \
 	CGO_ENABLED=1 \
-	CGO_CFLAGS="-DAPL=1 -DIBM=0 -DLIN=0 -O0 -g" \
+	CGO_CFLAGS="-DAPL=1 -DIBM=0 -DLIN=0 -O2 -g" \
 	CGO_LDFLAGS="-F/System/Library/Frameworks/ -F${CURDIR}/Libraries/Mac -framework XPLM" \
 	go build -buildmode c-shared -o build/XA-snow/mac_arm.xpl main.go
 	GOOS=darwin \
 	GOARCH=amd64 \
 	CGO_ENABLED=1 \
-	CGO_CFLAGS="-DAPL=1 -DIBM=0 -DLIN=0 -O0 -g" \
+	CGO_CFLAGS="-DAPL=1 -DIBM=0 -DLIN=0 -O2 -g" \
 	CGO_LDFLAGS="-F/System/Library/Frameworks/ -F${CURDIR}/Libraries/Mac -framework XPLM" \
 	go build -buildmode c-shared -o build/XA-snow/mac_amd.xpl main.go
 	lipo build/XA-snow/mac_arm.xpl build/XA-snow/mac_amd.xpl -create -output build/XA-snow/mac.xpl
@@ -22,11 +22,11 @@ dev:
 	GOOS=darwin \
 	GOARCH=arm64 \
 	CGO_ENABLED=1 \
-	CGO_CFLAGS="-DAPL=1 -DIBM=0 -DLIN=0 -O0 -g" \
+	CGO_CFLAGS="-DAPL=1 -DIBM=0 -DLIN=0 -O2 -g" \
 	CGO_LDFLAGS="-F/System/Library/Frameworks/ -F${CURDIR}/Libraries/Mac -framework XPLM" \
 	go build -buildmode c-shared -o ~/X-Plane\ 12/Resources/plugins/XA-snow/mac.xpl main.go
 win:
-	CGO_CFLAGS="-DIBM=1 -static -O0 -g" \
+	CGO_CFLAGS="-DIBM=1 -static -O2 -g" \
 	CGO_LDFLAGS="-L${CURDIR}/Libraries/Win -lXPLM_64 -static-libgcc -static-libstdc++ -Wl,--exclude-libs,ALL" \
 	GOOS=windows \
 	GOARCH=amd64 \
@@ -39,7 +39,7 @@ lin:
 	GOARCH=amd64 \
 	CGO_ENABLED=1 \
 	CC=/usr/local/bin/x86_64-linux-musl-cc \
-	CGO_CFLAGS="-DLIN=1 -O0 -g" \
+	CGO_CFLAGS="-DLIN=1 -O2 -g" \
 	CGO_LDFLAGS="-shared -rdynamic -nodefaultlibs -undefined_warning" \
 	go build -buildmode c-shared -o build/XA-snow/lin.xpl main.go
 
@@ -48,7 +48,7 @@ mac-test:
 	GOOS=darwin \
 	GOARCH=arm64 \
 	CGO_ENABLED=1 \
-	CGO_CFLAGS="-DAPL=1 -DIBM=0 -DLIN=0 -O0 -g" \
+	CGO_CFLAGS="-DAPL=1 -DIBM=0 -DLIN=0 -O2 -g" \
 	CGO_LDFLAGS="-F/System/Library/Frameworks/ -F${CURDIR}/Libraries/Mac -framework XPLM" \
 	go test -race -coverprofile=coverage.txt -covermode=atomic ./... -v
 
