@@ -20,6 +20,8 @@ import (
 	"sync"
 )
 
+var VERSION = "development"
+
 type XplaneService interface {
 	// init
 	onPluginStateChanged(state extra.PluginState, plugin *extra.XPlanePlugin)
@@ -92,7 +94,7 @@ func NewXplaneService(
 		xplaneSvcLock.Lock()
 		defer xplaneSvcLock.Unlock()
 		xplaneSvc := &xplaneService{
-			Plugin: extra.NewPlugin("X Airline Snow", "com.github.xairline.xa-snow", "show accumulated snow in X-Plane's world"),
+			Plugin: extra.NewPlugin("X Airline Snow - "+VERSION, "com.github.xairline.xa-snow", "show accumulated snow in X-Plane's world"),
 			GribService: NewGribService(logger,
 				utilities.GetSystemPath(),
 				filepath.Join(utilities.GetSystemPath(), "Resources", "plugins", "XA-snow", "bin")),
