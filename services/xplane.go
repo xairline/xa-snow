@@ -160,6 +160,8 @@ func (s *xplaneService) onPluginStart() {
 		menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex, menus.Menu_Unchecked)
 	}
 
+	// set internal vars to known "no snow" state
+	s.snowNow, s.rwySnowCover, s.iceNow = s.p2x.SnowDepthToXplaneSnowNow(0)
 }
 
 func (s *xplaneService) onPluginStop() {
