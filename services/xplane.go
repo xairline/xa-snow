@@ -14,6 +14,7 @@ import (
 	"github.com/xairline/goplane/xplm/utilities"
 	"github.com/xairline/xa-snow/utils/logger"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -96,7 +97,7 @@ func NewXplaneService(
 		xplaneSvc := &xplaneService{
 			Plugin: extra.NewPlugin("X Airline Snow - "+VERSION, "com.github.xairline.xa-snow", "show accumulated snow in X-Plane's world"),
 			GribService: NewGribService(logger,
-				utilities.GetSystemPath(),
+				path.Join(utilities.GetSystemPath(), "Output", "snow"),
 				filepath.Join(utilities.GetSystemPath(), "Resources", "plugins", "XA-snow", "bin")),
 			p2x:      NewPhys2XPlane(logger),
 			Logger:   logger,

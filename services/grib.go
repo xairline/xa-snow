@@ -173,6 +173,10 @@ func NewGribService(logger logger.Logger, dir string, binPath string) GribServic
 			binPath:        binPath,
 			SnowDm:         &depthMap{name: "Snow", Logger: logger},
 		}
+		// make sure grib file folder exists
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			os.MkdirAll(dir, os.ModePerm)
+		}
 		return gribSvc
 	}
 }
@@ -245,7 +249,7 @@ func (g *gribService) getDownloadUrl(sys_time bool, timeUTC time.Time) (string, 
 		url := fmt.Sprintf("https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?dir=%%2Fgfs.%s%%2F%02d%%2Fatmos&file=%s&var_SNOD=on&all_lev=on", cycleDate, cycle, filename)
 		return url, ctimeUTC, cycle
 	} else {
-		forecast = 6	// TODO: for now
+		forecast = 6 // TODO: for now
 		filename := fmt.Sprintf("gfs.0p25.%s%02d.f0%02d.grib2", cycleDate, cycle, forecast)
 		g.Logger.Infof("GITHUB Filename: %s, %d, %d", filename, cycle, forecast)
 		url := fmt.Sprintf("https://github.com/xairline/weather-data/releases/download/daily/%s", filename)
@@ -325,7 +329,7 @@ func (g *gribService) downloadGribFile(sys_time bool, day, month, hour int) (str
 		defer resp.Body.Close()
 
 		// Create the file with the date in its name
-		out, err := os.Create(filename)
+		out, err := os.Create(g.gribFilePath)
 		if err != nil {
 			g.Logger.Errorf("%v", err)
 			return "", err
