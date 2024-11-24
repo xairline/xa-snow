@@ -3,16 +3,22 @@ package services
 import (
 	"github.com/xairline/xa-snow/utils/logger"
 	"os"
+	"math"
 	"path/filepath"
 	"fmt"
 	"image"
 	_ "image/png"
 )
 
-const (
-	N = 1440
-	M = 720
+// water map in 0.1° resolution
+const n_wm = 3600
+const m_wm = 1800
+
+var (
+	dir_x = [8]int{1, 1, 0, -1, -1, -1,  0,  1}
+	dir_y = [8]int{0, 1, 1,  1,  0, -1, -1, -1}
 )
+
 
 type CoastService interface {
 	IsWater(i, j int) bool
@@ -22,7 +28,8 @@ type CoastService interface {
 
 type coastService struct {
 	logger	logger.Logger
-	coastLine [N][M]uint8
+
+	coastLine [n_wm][m_wm]uint8
 }
 
 func (cs *coastService)IsWater(i, j int) bool {
@@ -51,24 +58,24 @@ func NewCoastService(logger logger.Logger, dir string) CoastService {
 		logger.Errorf("Can't decode '%s'", file)
 		return nil
 	}
-	if wmap.Bounds() != image.Rect(0, 0, 1440, 720) {
+	if wmap.Bounds() != image.Rect(0, 0, n_wm, m_wm) {
 		logger.Error("Invalid map")
 		return nil
 	}
 
-	fmt.Printf("%s %s\n", str, wmap.Bounds().String())
+	logger.Infof("%s %s", str, wmap.Bounds().String())
 
 	is_water := func (i, j int) bool {
-		if i > N {
-			i -= N
+		if i > n_wm {
+			i -= n_wm
 		}
 
 		if i < 0 {
-			i += N
+			i += n_wm
 		}
 
-		if j > M {
-			j = M
+		if j > m_wm {
+			j = m_wm
 		}
 
 		if j < 0 {
@@ -85,8 +92,8 @@ func NewCoastService(logger logger.Logger, dir string) CoastService {
 
     water := 0
 	land := 0
-	for i := 0; i < N; i++ {
-		for j := 0;  j < M; j++ {
+	for i := 0; i < n_wm; i++ {
+		for j := 0;  j < m_wm; j++ {
 			if is_water(i, j) {
 				water++
 			} else {
@@ -99,17 +106,45 @@ func NewCoastService(logger logger.Logger, dir string) CoastService {
 
 	var coast_dir [8]int
 
-	for i := 0; i < N; i++ {
-		for j := 0;  j < M; j++ {
+	for i := 0; i < n_wm; i++ {
+		for j := 0;  j < m_wm; j++ {
 			if is_water(i, j) {
-				var dir [8]int
-				if is_water(i-1, j) && is_water(i-2, j) && is_land(i+1, j) {
-					dir[0] = 1
-					coast_dir[0]++
+				cgx := float32(0)
+				cgy := float32(0)
+				ncg := 0
+				for dir := 0; dir < 8; dir++ {
+					di := dir_x[dir]
+					dj := dir_y[dir]
+					if is_water(i-2*di, j-2*dj) && is_water(i-di, j-dj) && is_land(i+di, j+dj) {
+						f := float32(1.0)
+						if dir % 2 != 0 {
+							f = 0.7071 // sin(45) = cos(45)
+						}
+						cgx += f * float32(di)
+						cgy += f * float32(dj)
+						ncg++
+					}
 				}
-				if is_water(i+1, j) && is_water(i+2, j) && is_land(i-1, j) {
-					dir[4] = 1
-					coast_dir[4]++
+
+				if ncg > 0 {
+					//if ncg == 1 {
+					//	fmt.Println(i, j, cgx, cgy)
+					//}
+					cgx /= float32(ncg)
+					cgy /= float32(ncg)
+
+					ang := math.Atan2(float64(cgy), float64(cgx)) * 180 / math.Pi
+					if ang < 0 {
+						ang += 360
+					}
+
+					dir_land := int(math.Round(ang/45))
+					if dir_land == 8 {
+						dir_land = 0
+					}
+
+					//logger.Infof("dir_land: %d", dir_land)
+					coast_dir[dir_land]++
 				}
 			}
 		}
