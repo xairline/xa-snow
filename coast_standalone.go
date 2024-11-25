@@ -4,8 +4,12 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"github.com/xairline/xa-snow/services"
-	 //"goki.dev/cam/hsl"
+	"image"
+	"image/color"
+	"image/png"
+	"goki.dev/cam/hsl"
 )
 
 // MyLogger is a mock type for the Logger type
@@ -46,8 +50,41 @@ func (m *MyLogger) Errorf(format string, a ...interface{}) {
 }
 
 func main() {
-	Logger := new(MyLogger)
-	Logger.Info("startup")
-	cs := services.NewCoastService(Logger, ".")
+	logger := new(MyLogger)
+	logger.Info("startup")
+	cs := services.NewCoastService(logger, ".")
 	cs.IsCoast(0, 0)
+
+	cLand := color.NRGBA{128, 128, 128, 255}
+	//cCoast := color.NRGBA{255, 0, 0, 255}
+	img := image.NewNRGBA(image.Rect(0,0,3600, 1800))
+	for i := 1; i < 3600; i++ {
+		for j:= 0; j < 1800; j++ {
+			if cs.IsLand(i, j) {
+				img.SetNRGBA(i, 1800 - j, cLand)
+			} else {
+				yes, _, _, dir := cs.IsCoast(i, j)
+				if yes {
+					ang := float32(dir) * 45
+					ang = 90 - ang		// for visualization use true hdg
+					r, g, b := hsl.HSLtoRGBf32(ang, 1.0, 0.5)
+					cCoast := color.NRGBA{uint8(r * 255), uint8(g * 255), uint8(b * 255), 255}
+					img.SetNRGBA(i, 1800 - j, cCoast)
+				}
+			}
+		}
+	}
+
+	file := "visualization.png"
+	f, err := os.Create(file)
+	if err != nil {
+		logger.Errorf("Can't open '%s'", file)
+		return
+	}
+	defer f.Close()
+
+	err = png.Encode(f, img)
+	if err != nil {
+		logger.Error("Encode failed")
+	}
 }

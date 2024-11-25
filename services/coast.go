@@ -23,25 +23,35 @@ var (
 type CoastService interface {
 	IsWater(i, j int) bool
 	IsLand(i, j int) bool
-	IsCoast(i, j int) (bool, int, int)
+	IsCoast(i, j int) (bool, int, int, int)	// -> yes_no, step_x, step_y, grid angle
 }
+
+const (
+	sWater = iota
+	sLand
+	sCoast
+)
 
 type coastService struct {
 	logger	logger.Logger
 
-	coastLine [n_wm][m_wm]uint8
+	wmap [n_wm][m_wm]uint8		// encoded as (dir << 2)|sXxx
 }
 
 func (cs *coastService)IsWater(i, j int) bool {
-	return true
+	return (cs.wmap[i][j] & 0x3) == sWater
 }
 
 func (cs *coastService)IsLand(i, j int) bool {
+	return (cs.wmap[i][j] & 0x3) == sLand
 	return !cs.IsWater(i,j)
 }
 
-func (cs *coastService)IsCoast(i, j int) (bool, int, int) {
-	return false, 0, 0
+func (cs *coastService)IsCoast(i, j int) (bool, int, int, int) {
+	v := cs.wmap[i][j]
+	yes_no := (v & 0x3) == sCoast
+	dir := v >> 2
+	return yes_no, dir_x[dir], dir_y[dir], int(dir)
 }
 
 func NewCoastService(logger logger.Logger, dir string) CoastService {
@@ -53,19 +63,20 @@ func NewCoastService(logger logger.Logger, dir string) CoastService {
 	}
 	defer reader.Close()
 
-	wmap, str, err := image.Decode(reader)
+	omap, str, err := image.Decode(reader)
 	if err != nil {
 		logger.Errorf("Can't decode '%s'", file)
 		return nil
 	}
-	if wmap.Bounds() != image.Rect(0, 0, n_wm, m_wm) {
+	if omap.Bounds() != image.Rect(0, 0, n_wm, m_wm) {
 		logger.Error("Invalid map")
 		return nil
 	}
 
-	logger.Infof("%s %s", str, wmap.Bounds().String())
+	logger.Infof("%s %s", str, omap.Bounds().String())
 
 	is_water := func (i, j int) bool {
+		j = m_wm - j	// for the image (0,0) is top left to flip y values
 		if i > n_wm {
 			i -= n_wm
 		}
@@ -82,7 +93,7 @@ func NewCoastService(logger logger.Logger, dir string) CoastService {
 			j = 0
 		}
 
-		r, _, _, _ := wmap.At(i, j).RGBA()
+		r, _, _, _ := omap.At(i, j).RGBA()
 		return r == 0
 	}
 
@@ -104,45 +115,55 @@ func NewCoastService(logger logger.Logger, dir string) CoastService {
 
 	fmt.Printf("w: %d, l: %d, sum: %d\n", water, land, water + land)
 
+	cs := &coastService{logger:logger}
+
 	var coast_dir [8]int
 
 	for i := 0; i < n_wm; i++ {
 		for j := 0;  j < m_wm; j++ {
+			// xlate to grib file index
+			i_cs := i - n_wm/2
+			if i_cs < 0 {
+				i_cs += n_wm
+			}
+			cs.wmap[i_cs][j] = sLand
+
 			if is_water(i, j) {
-				cgx := float32(0)
-				cgy := float32(0)
-				ncg := 0
+				cs.wmap[i_cs][j] = sWater
+				// we check whether to the opposite side is only water and in direction 'dir' is land
+				// if yes we sum up all unitity vectors in dir to get the 'average' direction
+				sum_x := float32(0)
+				sum_y := float32(0)
+				is_coast := false
 				for dir := 0; dir < 8; dir++ {
 					di := dir_x[dir]
 					dj := dir_y[dir]
 					if is_water(i-2*di, j-2*dj) && is_water(i-di, j-dj) && is_land(i+di, j+dj) {
 						f := float32(1.0)
-						if dir % 2 != 0 {
-							f = 0.7071 // sin(45) = cos(45)
+						if dir & 1 == 1 {
+							f = 0.7071 // diagonal, sin(45) = cos(45) = 0.707
 						}
-						cgx += f * float32(di)
-						cgy += f * float32(dj)
-						ncg++
+						sum_x += f * float32(di)
+						sum_y += f * float32(dj)
+						is_coast = true
 					}
 				}
 
-				if ncg > 0 {
-					//if ncg == 1 {
-					//	fmt.Println(i, j, cgx, cgy)
-					//}
-					cgx /= float32(ncg)
-					cgy /= float32(ncg)
-
-					ang := math.Atan2(float64(cgy), float64(cgx)) * 180 / math.Pi
+				if is_coast {
+					// get angle of the average direction. We consider this as normal
+					// of the coast line
+					ang := math.Atan2(float64(sum_y), float64(sum_x)) * 180 / math.Pi
 					if ang < 0 {
 						ang += 360
 					}
 
+					// round to grid directions
 					dir_land := int(math.Round(ang/45))
 					if dir_land == 8 {
 						dir_land = 0
 					}
 
+					cs.wmap[i_cs][j] = uint8(dir_land << 2 | sCoast)
 					//logger.Infof("dir_land: %d", dir_land)
 					coast_dir[dir_land]++
 				}
@@ -154,6 +175,5 @@ func NewCoastService(logger logger.Logger, dir string) CoastService {
 		fmt.Printf("dir[%d], coast: %d\n", k, coast_dir[k])
 	}
 
-	cs := &coastService{logger:logger}
 	return cs
 }
