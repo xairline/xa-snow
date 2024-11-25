@@ -120,16 +120,20 @@ func NewCoastService(logger logger.Logger, dir string) CoastService {
 	var coast_dir [8]int
 
 	for i := 0; i < n_wm; i++ {
-		for j := 0;  j < m_wm; j++ {
+		for j := 10;  j < m_wm - 10; j++ {	// stay away from the poles
+
+			// determined by visual adjustment
+			i_cs := i - 3
+			j_cs := j - 3
+
 			// xlate to grib file index
-			i_cs := i - n_wm/2
+			i_cs -= n_wm/2
 			if i_cs < 0 {
 				i_cs += n_wm
 			}
-			cs.wmap[i_cs][j] = sLand
 
 			if is_water(i, j) {
-				cs.wmap[i_cs][j] = sWater
+				cs.wmap[i_cs][j_cs] = sWater
 				// we check whether to the opposite side is only water and in direction 'dir' is land
 				// if yes we sum up all unitity vectors in dir to get the 'average' direction
 				sum_x := float32(0)
@@ -163,10 +167,12 @@ func NewCoastService(logger logger.Logger, dir string) CoastService {
 						dir_land = 0
 					}
 
-					cs.wmap[i_cs][j] = uint8(dir_land << 2 | sCoast)
+					cs.wmap[i_cs][j_cs] = uint8(dir_land << 2 | sCoast)
 					//logger.Infof("dir_land: %d", dir_land)
 					coast_dir[dir_land]++
 				}
+			} else {
+				cs.wmap[i_cs][j_cs] = sLand
 			}
 		}
 	}
