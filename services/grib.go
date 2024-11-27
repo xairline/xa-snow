@@ -214,12 +214,20 @@ func (g *gribService) extendCoastalSnow() DepthMap {
 				new_dm.val[i][j] = sd
 			}
 
+			const max_step = 3
 			if is_coast, step_x, step_y, _ := g.cs.IsCoast(i, j); is_coast && sd <= min_sd {
 				// look for inland snow
 				inland_dist := 0
 				inland_sd := float32(0)
-				for k:= 1; k <= 3; k++ {
-					tmp := g.SnowDm.GetIdx(i+k*step_x, j+k*step_y)
+				for k:= 1; k <= max_step; k++ {
+					ii := i+k*step_x
+					jj := j+k*step_y
+
+					if k < max_step && g.cs.IsWater(ii, jj) {
+						continue
+					}
+
+					tmp := g.SnowDm.GetIdx(ii, jj)
 					if tmp > sd && tmp > min_sd {
 						inland_dist = k
 						inland_sd = tmp

@@ -38,12 +38,34 @@ type coastService struct {
 }
 
 func (cs *coastService)IsWater(i, j int) bool {
+	if i >= n_wm {
+		i -= n_wm
+	} else if i < 0 {
+		i += n_wm
+	}
+
+	if j > m_wm {
+		j = m_wm
+	} else if j < 0 {
+		j = 0
+	}
+
 	return (cs.wmap[i][j] & 0x3) == sWater
 }
 
 func (cs *coastService)IsLand(i, j int) bool {
+	if i >= n_wm {
+		i -= n_wm
+	} else if i < 0 {
+		i += n_wm
+	}
+
+	if j > m_wm {
+		j = m_wm
+	} else if j < 0 {
+		j = 0
+	}
 	return (cs.wmap[i][j] & 0x3) == sLand
-	return !cs.IsWater(i,j)
 }
 
 func (cs *coastService)IsCoast(i, j int) (bool, int, int, int) {
