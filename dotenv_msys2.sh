@@ -12,7 +12,7 @@ then
     this_dir=$(pwd)
 fi
 
-export CGO_CFLAGS="-DIBM=1 -O2 -g"
+export CGO_CFLAGS="-DIBM=1 -O2"
 export CGO_LDFLAGS="-L"$this_dir"/Libraries/Win -lXPLM_64"
 export GOOS=windows
 export GOARCH=amd64
