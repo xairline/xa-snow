@@ -47,6 +47,10 @@ func (cs *coastService)IsLand(i, j int) bool {
 }
 
 func (cs *coastService)IsCoast(i, j int) (bool, int, int, int) {
+	if j >= m_wm {
+		return false, 0, 0, 0
+	}
+
 	v := cs.wmap[i][j]
 	yes_no := (v & 0x3) == sCoast
 	dir := v >> 2

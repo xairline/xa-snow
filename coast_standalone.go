@@ -56,46 +56,66 @@ func main() {
 
 	img := image.NewNRGBA(image.Rect(0,0,3600, 1800))
 
+	gs := services.NewGribService(logger, ".", "bin", cs)
+	_, sm, sm_coast := gs.DownloadAndProcessGribFile(false, 12, 03, 18)
+
 	// land
-	cLand := color.NRGBA{80, 80, 80, 255}
-	for i := 0; i < 3600; i++ {
-		for j:= 0; j < 1800; j++ {
-			if cs.IsLand(i, j) {
-				img.SetNRGBA(i, 1800 - j, cLand)
+	if true {
+		cLand := color.NRGBA{80, 80, 80, 255}
+		for i := 0; i < 3600; i++ {
+			for j:= 0; j < 1800; j++ {
+				if cs.IsLand(i, j) {
+					img.SetNRGBA(i, 1800 - j, cLand)
+				}
 			}
 		}
 	}
 
 	// snow
-	gs := services.NewGribService(logger, ".", "bin", cs)
-	_, sm := gs.DownloadAndProcessGribFile(false, 12, 03, 18)
+	if true {
+		for i := 0; i < 3600; i++ {
+			for j:= 0; j < 1800; j++ {
+				sd := sm.GetIdx(i, j)
 
+				if sd > 0.01 {
+					const sd_max = 0.10
+					if sd > sd_max {
+						sd = sd_max
+					}
+					sd = sd / sd_max
+					const ofs = 70
+					cSnow := color.NRGBA{0, ofs + uint8(sd * (255 -ofs)), ofs + uint8(sd * (255 - ofs)), 255}
+					img.SetNRGBA(i, 1800 - j, cSnow)
+				}
+			}
+		}
+	}
+
+	// coastal snow
 	for i := 0; i < 3600; i++ {
 		for j:= 0; j < 1800; j++ {
-			sd := sm.GetIdx(i, j)
-
-			if sd > 0.01 {
-				const sd_max = 0.10
-				if sd > sd_max {
-					sd = sd_max
-				}
-				sd = sd / sd_max
-				const ofs = 70
-				cSnow := color.NRGBA{0, ofs + uint8(sd * (255 -ofs)), ofs + uint8(sd * (255 - ofs)), 255}
+ 			sd := sm.GetIdx(i, j)
+ 			sdc := sm_coast.GetIdx(i, j)
+			if sd != sdc {
+				//logger.Infof("%d, %d, %0.3f, %0.3f", i, j, sd, sdc)
+				const ofs = 100
+				cSnow := color.NRGBA{ofs + uint8(sdc * (255 -ofs)), ofs + uint8(sdc * (255 - ofs)), 0, 255}
 				img.SetNRGBA(i, 1800 - j, cSnow)
 			}
 		}
 	}
 
-	// coast
-	for i := 0; i < 3600; i++ {
-		for j:= 0; j < 1800; j++ {
-			if yes, _, _, dir := cs.IsCoast(i, j); yes {
-				ang := float32(dir) * 45
-				ang = 90 - ang		// for visualization use true hdg
-				r, g, b := hsl.HSLtoRGBf32(ang, 1.0, 0.5)
-				cCoast := color.NRGBA{uint8(r * 255), uint8(g * 255), uint8(b * 255), 255}
-				img.SetNRGBA(i, 1800 - j, cCoast)
+	// coast line
+	if false {
+		for i := 0; i < 3600; i++ {
+			for j:= 0; j < 1800; j++ {
+				if yes, _, _, dir := cs.IsCoast(i, j); yes {
+					ang := float32(dir) * 45
+					ang = 90 - ang		// for visualization use true hdg
+					r, g, b := hsl.HSLtoRGBf32(ang, 1.0, 0.5)
+					cCoast := color.NRGBA{uint8(r * 255), uint8(g * 255), uint8(b * 255), 255}
+					img.SetNRGBA(i, 1800 - j, cCoast)
+				}
 			}
 		}
 	}
