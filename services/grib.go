@@ -50,6 +50,7 @@ type gribService struct {
 	gribFilePath   string
 	gribFileFolder string
 	binPath        string
+	cs			   CoastService
 	SnowDm         *depthMap
 }
 
@@ -159,7 +160,7 @@ func (m *depthMap) Get(lon, lat float32) float32 {
 var gribSvcLock = &sync.Mutex{}
 var gribSvc GribService
 
-func NewGribService(logger logger.Logger, dir string, binPath string) GribService {
+func NewGribService(logger logger.Logger, dir string, binPath string, cs CoastService) GribService {
 	if gribSvc != nil {
 		logger.Info("Grib SVC has been initialized already")
 		return gribSvc
@@ -173,6 +174,7 @@ func NewGribService(logger logger.Logger, dir string, binPath string) GribServic
 			gribFileFolder: dir,
 			gribFilePath:   "",
 			binPath:        binPath,
+			cs:				cs,
 			SnowDm:         &depthMap{name: "Snow", Logger: logger},
 		}
 		// make sure grib file folder exists

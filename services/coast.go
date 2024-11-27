@@ -5,7 +5,6 @@ import (
 	"os"
 	"math"
 	"path/filepath"
-	"fmt"
 	"image"
 	_ "image/png"
 )
@@ -113,7 +112,7 @@ func NewCoastService(logger logger.Logger, dir string) CoastService {
 		}
 	}
 
-	fmt.Printf("w: %d, l: %d, sum: %d\n", water, land, water + land)
+	logger.Infof("w: %d, l: %d, sum: %d", water, land, water + land)
 
 	cs := &coastService{logger:logger}
 
@@ -178,7 +177,7 @@ func NewCoastService(logger logger.Logger, dir string) CoastService {
 	}
 
 	for k := 0; k < 8; k++ {
-		fmt.Printf("dir[%d], coast: %d\n", k, coast_dir[k])
+		logger.Infof("dir[%d], coast: %d", k, coast_dir[k])
 	}
 
 	return cs

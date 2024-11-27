@@ -67,17 +67,13 @@ func main() {
 	}
 
 	// snow
-	gs := services.NewGribService(logger, ".", "bin")
-	_ = gs.DownloadAndProcessGribFile(false, 12, 03, 18)
+	gs := services.NewGribService(logger, ".", "bin", cs)
+	_, sm := gs.DownloadAndProcessGribFile(false, 12, 03, 18)
 
 	for i := 0; i < 3600; i++ {
 		for j:= 0; j < 1800; j++ {
-			lat := float32(j) * 0.1 - 90
-			lon := float32(i) * 0.1
-			if lon > 180 {
-				lon -= 360
-			}
-			sd := gs.GetSnowDepth(lat, lon)
+			sd := sm.GetIdx(i, j)
+
 			if sd > 0.01 {
 				const sd_max = 0.10
 				if sd > sd_max {
