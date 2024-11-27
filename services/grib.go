@@ -202,7 +202,7 @@ func (g *gribService) GetSnowDepth(lat, lon float32) float32 {
 }
 
 func (g *gribService) extendCoastalSnow() DepthMap {
-	new_dm := &depthMap{name: "Snow", Logger: g.Logger}
+	new_dm := &depthMap{name: "Snow + Coast", Logger: g.Logger}
 
 	const min_sd = float32(0.02)
 
@@ -242,10 +242,11 @@ func (g *gribService) extendCoastalSnow() DepthMap {
 				}
 			}
 		}
-	 }
+	}
 
-	 g.SnowDm = new_dm
-	 return new_dm
+	new_dm.created = true
+	g.SnowDm = new_dm
+	return new_dm
 }
 
 

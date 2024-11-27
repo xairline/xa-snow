@@ -49,6 +49,12 @@ func (m *MyLogger) Errorf(format string, a ...interface{}) {
 	fmt.Println("Error:", fmt.Sprintf(format, a...))
 }
 
+var sm, sm_coast services.DepthMap
+
+func logSnow(loc string, lat, lon float32) {
+	fmt.Printf("at %s, grib sd: %0.3f, coastal sd: %0.3f\n", loc, sm.Get(lon, lat), sm_coast.Get(lon, lat))
+}
+
 func main() {
 	logger := new(MyLogger)
 	logger.Info("startup")
@@ -57,7 +63,13 @@ func main() {
 	img := image.NewNRGBA(image.Rect(0,0,3600, 1800))
 
 	gs := services.NewGribService(logger, ".", "bin", cs)
-	_, sm, sm_coast := gs.DownloadAndProcessGribFile(false, 12, 03, 18)
+	_, sm, sm_coast = gs.DownloadAndProcessGribFile(false, 12, 03, 18)
+
+	logSnow("ESGG", 57.650, 12.268)
+	logSnow("ESGG coast", 57.668, 11.934)
+
+	logSnow("ENBR", 60.280, 5.222)
+	logSnow("ENBR coast", 60.271421, 4.952735)
 
 	// land
 	if true {
