@@ -139,6 +139,7 @@ func (s *xplaneService) onPluginStart() {
 	if os.Getenv("OVERRIDE") == "true" {
 		s.override = true
 	}
+	s.Logger.Infof("Override: %v", s.override)
 
 	// API drefs are available at plugin start
 	s.lat_dr, _ = dataAccess.FindDataRef("sim/flightmodel/position/latitude")
@@ -196,7 +197,7 @@ func (s *xplaneService) flightLoop(
 
 		go func() {
 			for {
-				err := gribSvc.DownloadAndProcessGribFile(sys_time, month, day, hour)
+				err, _ := gribSvc.DownloadAndProcessGribFile(sys_time, month, day, hour)
 				if err != nil {
 					s.Logger.Errorf("Download grib file failed: %v", err)
 				} else {

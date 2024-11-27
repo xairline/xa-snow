@@ -23,6 +23,9 @@ const n_iLat = 1801
 type DepthMap interface {
 	Get(lon, lat float32) float32
 	LoadCsv(csv_name string)
+
+	// get by index with wrap around
+	GetIdx(iLon, iLat int) float32
 }
 
 type depthMap struct {
@@ -35,7 +38,7 @@ type depthMap struct {
 // grib + map service
 type GribService interface {
 	IsReady() bool // ready to retrieve values
-	DownloadAndProcessGribFile(sys_time bool, day, month, hour int) error
+	DownloadAndProcessGribFile(sys_time bool, day, month, hour int) (error, DepthMap)
 	GetSnowDepth(lat, lon float32) float32
 	convertGribToCsv(snow_csv_name string)
 	downloadGribFile(sys_time bool, day, month, hour int) (string, error)
@@ -97,25 +100,24 @@ func (m *depthMap) LoadCsv(csv_name string) {
 	m.Logger.Infof("Loading CSV file '%s': Done", csv_name)
 }
 
+func (m *depthMap) GetIdx(iLon, iLat int) float32 {
+	// for lon we wrap around
+	if iLon >= n_iLon {
+		iLon -= n_iLon
+	}
+
+	// for lat we just confine, doesn't make a difference anyway
+	if iLat > n_iLat {
+		iLat = n_iLat
+	}
+
+	return m.val[iLon][iLat]
+}
+
 func (m *depthMap) Get(lon, lat float32) float32 {
 	if !m.created {
 		m.Logger.Errorf("Get called and map %s is not ready!", m.name)
 		return 0.0
-	}
-
-	// get value a iLat, iLon with range check
-	getVal := func(iLon, iLat int) float32 {
-		// for lon we wrap around
-		if iLon >= n_iLon {
-			iLon -= n_iLon
-		}
-
-		// for lat we just confine, doesn't make a difference anyway
-		if iLat > n_iLat {
-			iLat = n_iLat
-		}
-
-		return m.val[iLon][iLat]
 	}
 
 	// our snow world map is 3600x1801 [0,359.9]x[0,180.0]
@@ -138,10 +140,10 @@ func (m *depthMap) Get(lon, lat float32) float32 {
 	t := lat - float32(iLat)
 
 	//m.Logger.Infof("(%f, %f) -> (%d, %d) (%f, %f)", lon/10, lat/10 - 90, iLon, iLat, s, t)
-	v00 := getVal(iLon, iLat)
-	v10 := getVal(iLon+1, iLat)
-	v01 := getVal(iLon, iLat+1)
-	v11 := getVal(iLon+1, iLat+1)
+	v00 := m.GetIdx(iLon, iLat)
+	v10 := m.GetIdx(iLon+1, iLat)
+	v01 := m.GetIdx(iLon, iLat+1)
+	v11 := m.GetIdx(iLon+1, iLat+1)
 
 	// Lagrange polynoms: pij = is 1 on corner ij and 0 elsewhere
 	p00 := (1 - s) * (1 - t)
@@ -189,7 +191,7 @@ func (g *gribService) GetSnowDepth(lat, lon float32) float32 {
 	return g.SnowDm.Get(lon, lat)
 }
 
-func (g *gribService) DownloadAndProcessGribFile(sys_time bool, month, day, hour int) error {
+func (g *gribService) DownloadAndProcessGribFile(sys_time bool, month, day, hour int) (error, DepthMap) {
 	file_override := 0
 
 	snow_csv_file := "snod.csv"
@@ -207,7 +209,7 @@ func (g *gribService) DownloadAndProcessGribFile(sys_time bool, month, day, hour
 		// download grib file
 		gribFilename, err = g.downloadGribFile(sys_time, day, month, hour)
 		if err != nil {
-			return err
+			return err, nil
 		}
 		// convert grib file to csv files
 		g.convertGribToCsv("snod.csv")
@@ -218,9 +220,9 @@ func (g *gribService) DownloadAndProcessGribFile(sys_time bool, month, day, hour
 	// remove old grib files
 	err = g.removeOldGribFiles(gribFilename)
 	if err != nil {
-		return err
+		return err, nil
 	}
-	return nil
+	return nil, g.SnowDm
 }
 
 func (g *gribService) getDownloadUrl(sys_time bool, timeUTC time.Time) (string, time.Time, int) {

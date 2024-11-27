@@ -49,8 +49,8 @@ func main() {
 	Logger := new(MyLogger)
 	Logger.Info("startup")
 	gs := services.NewGribService(Logger, ".", "bin")
-	//_ = gs.DownloadAndProcessGribFile(true, 0, 0, 0)
-	_ = gs.DownloadAndProcessGribFile(false, 01, 03, 18)
+	//_, _ = gs.DownloadAndProcessGribFile(true, 0, 0, 0)
+	_, m := gs.DownloadAndProcessGribFile(false, 01, 03, 18)
 
 	p2s := services.NewPhys2XPlane(Logger)
 
@@ -59,6 +59,8 @@ func main() {
 		time.Sleep(1)
 	}
 
+	v := m.GetIdx(1820, 1253)
+	Logger.Infof("m.GetIdx: %f", v)
 	s := gs.GetSnowDepth(51.418441, 9.387076)
 	sd, saw, icen := p2s.SnowDepthToXplaneSnowNow(s)
 	Logger.Infof("s = %0.2f, saw = %0.2f, icen = %0.2f", sd, saw, icen)
