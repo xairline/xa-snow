@@ -238,25 +238,13 @@ func (g *gribService) extendCoastalSnow() DepthMap {
 				if (inland_dist > 0) {
 					//g.Logger.Infof("Inland snow detected for (%d, %d) at dist %d, sd: %0.3f %0.3f", i, j, inland_dist, sd, inland_sd)
 
-					if false {
-						// linearily interpolate snow from inland point to coast line point
-						sd_base := sd
-						if sd_base < min_sd {
-							sd_base = min_sd
+					// use power law from inland point to coast line point
+					for k := inland_dist - 1; k >= 0; k-- {
+						inland_sd *= 0.8
+						if inland_sd < min_sd {
+							inland_sd = min_sd
 						}
-						f := (inland_sd - sd_base) / float32(inland_dist)
-						for k := 0; k < inland_dist; k++ {
-							new_dm.val[i+k*step_x][j+k*step_y] = sd_base + f * float32(k)
-						}
-					} else {
-						// use power law from inland point to coast line point
-						for k := inland_dist - 1; k >= 0; k-- {
-							inland_sd *= 0.8
-							if inland_sd < min_sd {
-								inland_sd = min_sd
-							}
-							new_dm.val[i+k*step_x][j+k*step_y] = inland_sd
-						}
+						new_dm.val[i+k*step_x][j+k*step_y] = inland_sd
 					}
 				}
 			}

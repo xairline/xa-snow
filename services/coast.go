@@ -88,7 +88,7 @@ func NewCoastService(logger logger.Logger, dir string) CoastService {
 	}
 	defer reader.Close()
 
-	omap, str, err := image.Decode(reader)
+	omap, img_type, err := image.Decode(reader)
 	if err != nil {
 		logger.Errorf("Can't decode '%s'", file)
 		return nil
@@ -98,7 +98,7 @@ func NewCoastService(logger logger.Logger, dir string) CoastService {
 		return nil
 	}
 
-	logger.Infof("%s %s", str, omap.Bounds().String())
+	logger.Infof("Decoded: '%s', %s %s", file, img_type, omap.Bounds().String())
 
 	is_water := func (i, j int) bool {
 		j = m_wm - j	// for the image (0,0) is top left to flip y values
@@ -126,23 +126,7 @@ func NewCoastService(logger logger.Logger, dir string) CoastService {
 		return !is_water(i,j)
 	}
 
-    water := 0
-	land := 0
-	for i := 0; i < n_wm; i++ {
-		for j := 0;  j < m_wm; j++ {
-			if is_water(i, j) {
-				water++
-			} else {
-				land++
-			}
-		}
-	}
-
-	logger.Infof("w: %d, l: %d, sum: %d", water, land, water + land)
-
 	cs := &coastService{logger:logger}
-
-	var coast_dir [8]int
 
 	for i := 0; i < n_wm; i++ {
 		for j := 10;  j < m_wm - 10; j++ {	// stay away from the poles
@@ -194,16 +178,11 @@ func NewCoastService(logger logger.Logger, dir string) CoastService {
 
 					cs.wmap[i_cs][j_cs] = uint8(dir_land << 2 | sCoast)
 					//logger.Infof("dir_land: %d", dir_land)
-					coast_dir[dir_land]++
 				}
 			} else {
 				cs.wmap[i_cs][j_cs] = sLand
 			}
 		}
-	}
-
-	for k := 0; k < 8; k++ {
-		logger.Infof("dir[%d], coast: %d", k, coast_dir[k])
 	}
 
 	return cs
