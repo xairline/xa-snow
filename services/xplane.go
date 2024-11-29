@@ -47,12 +47,13 @@ type xplaneService struct {
 	Logger   logger.Logger
 	disabled bool
 	override bool
+	rwyIce   bool
 
 	loopCnt                                  uint32
 	snowDepth, snowNow, iceNow, rwySnowCover float32
 
-	myMenuId        menus.MenuID
-	myMenuItemIndex int
+	myMenuId                          menus.MenuID
+	myMenuItemIndex, myMenuItemIndex2 int
 
 	configFilePath string
 }
@@ -108,6 +109,7 @@ func NewXplaneService(
 			Logger:   logger,
 			disabled: false,
 			override: false,
+			rwyIce:   true,
 		}
 		xplaneSvc.Plugin.SetPluginStateCallback(xplaneSvc.onPluginStateChanged)
 		xplaneSvc.Plugin.SetMessageHandler(xplaneSvc.messageHandler)
@@ -144,7 +146,9 @@ func (s *xplaneService) onPluginStart() {
 	if os.Getenv("OVERRIDE") == "true" {
 		s.override = true
 	}
-	s.Logger.Infof("Override: %v", s.override)
+	if os.Getenv("RWY_ICE") == "true" {
+		s.rwyIce = true
+	}
 
 	// API drefs are available at plugin start
 	s.lat_dr, _ = dataAccess.FindDataRef("sim/flightmodel/position/latitude")
@@ -163,10 +167,16 @@ func (s *xplaneService) onPluginStart() {
 	menuContainerId := menus.AppendMenuItem(menuId, "X Airline Snow", 0, false)
 	s.myMenuId = menus.CreateMenu("X Airline Snow", menuId, menuContainerId, s.menuHandler, nil)
 	s.myMenuItemIndex = menus.AppendMenuItem(s.myMenuId, "Toggle Override", 0, true)
+	s.myMenuItemIndex2 = menus.AppendMenuItem(s.myMenuId, "Lock Elsa up (ice)", 1, true)
 	if s.override {
 		menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex, menus.Menu_Checked)
 	} else {
 		menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex, menus.Menu_Unchecked)
+	}
+	if !s.rwyIce {
+		menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex2, menus.Menu_Checked)
+	} else {
+		menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex2, menus.Menu_Unchecked)
 	}
 
 	// set internal vars to known "no snow" state
@@ -252,6 +262,11 @@ func (s *xplaneService) flightLoop(
 		return -1
 	}
 
+	if !s.rwyIce {
+		s.iceNow = 2
+		s.rwySnowCover = 0.25
+	}
+
 	dataAccess.SetFloatData(s.snow_dr, s.snowNow)
 	dataAccess.SetFloatData(s.rwySnowCover_dr, s.rwySnowCover)
 	dataAccess.SetFloatData(s.ice_dr, s.iceNow)
@@ -267,21 +282,35 @@ func (s *xplaneService) messageHandler(message plugins.Message) {
 }
 
 func (s *xplaneService) menuHandler(menuRef interface{}, itemRef interface{}) {
-	s.override = !s.override
+	if itemRef.(int) == 0 {
+		s.override = !s.override
 
-	if s.override {
-		menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex, menus.Menu_Checked)
-	} else {
-		menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex, menus.Menu_Unchecked)
+		if s.override {
+			menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex, menus.Menu_Checked)
+		} else {
+			menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex, menus.Menu_Unchecked)
+
+		}
+		s.Logger.Infof("Override: %v", s.override)
+	}
+	if itemRef.(int) == 1 {
+		s.rwyIce = !s.rwyIce
+		if s.rwyIce {
+			menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex2, menus.Menu_Unchecked)
+		} else {
+			menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex2, menus.Menu_Checked)
+
+		}
+		s.Logger.Infof("Rwy Ice: %v", s.rwyIce)
 	}
 
 	// write to config
 	err := godotenv.Write(map[string]string{
 		"OVERRIDE": strconv.FormatBool(s.override),
+		"RWY_ICE":  strconv.FormatBool(s.rwyIce),
 	}, s.configFilePath)
 	if err != nil {
 		s.Logger.Errorf("Error writing to config: %v", err)
 	}
 
-	s.Logger.Infof("Override: %v", s.override)
 }
