@@ -63,7 +63,8 @@ func main() {
 	img := image.NewNRGBA(image.Rect(0,0,3600, 1800))
 
 	gs := services.NewGribService(logger, ".", "bin", cs)
-	_, sm, sm_coast = gs.DownloadAndProcessGribFile(false, 12, 03, 18)
+	//_, sm, sm_coast = gs.DownloadAndProcessGribFile(false, 12, 03, 18)
+	_, sm, sm_coast = gs.DownloadAndProcessGribFile(true, 12, 03, 18)
 
 	logSnow("ESGG", 57.650, 12.268)
 	logSnow("ESGG coast", 57.668, 11.934)

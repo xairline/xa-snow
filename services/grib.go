@@ -32,7 +32,6 @@ type depthMap struct {
 	Logger  logger.Logger
 	name    string
 	val     [n_iLon][n_iLat]float32
-	created bool
 }
 
 // grib + map service
@@ -43,16 +42,17 @@ type GribService interface {
 	convertGribToCsv(snow_csv_name string)
 	downloadGribFile(sys_time bool, day, month, hour int) (string, error)
 	getDownloadUrl(sys_time bool, timeUTC time.Time) (string, time.Time, int)
-	extendCoastalSnow() DepthMap
+	extendCoastalSnow(gribSnow DepthMap) DepthMap
 }
 
 type gribService struct {
+	ready 		   bool
 	Logger         logger.Logger
 	gribFilePath   string
 	gribFileFolder string
 	binPath        string
 	cs			   CoastService
-	SnowDm         *depthMap
+	SnowDm         DepthMap
 }
 
 // load csv file into depth map
@@ -97,7 +97,6 @@ func (m *depthMap) LoadCsv(csv_name string) {
 		m.val[x][y] = value
 		counter++
 	}
-	m.created = true
 	m.Logger.Infof("%s depth map size: %d", m.name, counter)
 	m.Logger.Infof("Loading CSV file '%s': Done", csv_name)
 }
@@ -121,11 +120,6 @@ func (m *depthMap) GetIdx(iLon, iLat int) float32 {
 }
 
 func (m *depthMap) Get(lon, lat float32) float32 {
-	if !m.created {
-		m.Logger.Errorf("Get called and map %s is not ready!", m.name)
-		return 0.0
-	}
-
 	// our snow world map is 3600x1801 [0,359.9]x[0,180.0]
 	lat += 90.0
 
@@ -180,7 +174,6 @@ func NewGribService(logger logger.Logger, dir string, binPath string, cs CoastSe
 			gribFilePath:   "",
 			binPath:        binPath,
 			cs:				cs,
-			SnowDm:         &depthMap{name: "Snow", Logger: logger},
 		}
 		// make sure grib file folder exists
 		if _, err := os.Stat(dir); os.IsNotExist(err) {
@@ -191,21 +184,28 @@ func NewGribService(logger logger.Logger, dir string, binPath string, cs CoastSe
 }
 
 func (g *gribService) IsReady() bool {
-	return g.SnowDm.created
+	return g.ready
 }
 
 func (g *gribService) GetSnowDepth(lat, lon float32) float32 {
+	if !g.ready {
+		g.Logger.Error("Get called and service is not ready!")
+		return 0.0
+	}
+
 	return g.SnowDm.Get(lon, lat)
 }
 
-func (g *gribService) extendCoastalSnow() DepthMap {
+func (g *gribService) extendCoastalSnow(gribSnow DepthMap) DepthMap {
 	new_dm := &depthMap{name: "Snow + Coast", Logger: g.Logger}
 
 	const min_sd = float32(0.02)	// only go higher than this snow depth
 
+	n_extend := 0
+
 	for i := 0; i < n_iLon; i++ {
 		for j := 0; j < n_iLat; j++ {
-			sd := g.SnowDm.GetIdx(i, j)
+			sd := gribSnow.GetIdx(i, j)
 			sdn := new_dm.val[i][j]		// may already be set by inland extension earlier
 			if sd > sdn {				// always maximize
 				new_dm.val[i][j] = sd
@@ -224,7 +224,7 @@ func (g *gribService) extendCoastalSnow() DepthMap {
 						continue
 					}
 
-					tmp := g.SnowDm.GetIdx(ii, jj)
+					tmp := gribSnow.GetIdx(ii, jj)
 					if tmp > sd && tmp > min_sd {		// found snow
 						inland_dist = k
 						inland_sd = tmp
@@ -244,14 +244,14 @@ func (g *gribService) extendCoastalSnow() DepthMap {
 							inland_sd = min_sd
 						}
 						new_dm.val[i+k*dir_x][j+k*dir_y] = inland_sd
+						n_extend++
 					}
 				}
 			}
 		}
 	}
 
-	new_dm.created = true
-	g.SnowDm = new_dm
+	g.Logger.Infof("Extended costal snow on %d grid points", n_extend)
 	return new_dm
 }
 
@@ -280,7 +280,8 @@ func (g *gribService) DownloadAndProcessGribFile(sys_time bool, month, day, hour
 		g.convertGribToCsv("snod.csv")
 	}
 
-	g.SnowDm.LoadCsv(snow_csv_file)
+	gribSnow := &depthMap{name: "Snow", Logger: g.Logger}
+	gribSnow.LoadCsv(snow_csv_file)
 
 	// remove old grib files
 	err = g.removeOldGribFiles(gribFilename)
@@ -288,8 +289,9 @@ func (g *gribService) DownloadAndProcessGribFile(sys_time bool, month, day, hour
 		return err, nil, nil
 	}
 
-	gribSnow := g.SnowDm
-	coastalSnow := g.extendCoastalSnow()
+	coastalSnow := g.extendCoastalSnow(gribSnow)
+	g.SnowDm = coastalSnow
+	g.ready = true
 	return nil, gribSnow, coastalSnow
 }
 
