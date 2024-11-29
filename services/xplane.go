@@ -95,11 +95,16 @@ func NewXplaneService(
 		logger.Info("Xplane SVC: initializing")
 		xplaneSvcLock.Lock()
 		defer xplaneSvcLock.Unlock()
+
+		systemPath := utilities.GetSystemPath()
+		pluginPath := filepath.Join(systemPath, "Resources", "plugins", "XA-snow")
+
 		xplaneSvc := &xplaneService{
 			Plugin: extra.NewPlugin("X Airline Snow - "+VERSION, "com.github.xairline.xa-snow", "show accumulated snow in X-Plane's world"),
 			GribService: NewGribService(logger,
-				path.Join(utilities.GetSystemPath(), "Output", "snow"),
-				filepath.Join(utilities.GetSystemPath(), "Resources", "plugins", "XA-snow", "bin")),
+				path.Join(systemPath, "Output", "snow"),
+				filepath.Join(pluginPath, "bin"),
+				NewCoastService(logger, pluginPath)),
 			p2x:      NewPhys2XPlane(logger),
 			Logger:   logger,
 			disabled: false,
@@ -207,7 +212,7 @@ func (s *xplaneService) flightLoop(
 
 		go func() {
 			for {
-				err := gribSvc.DownloadAndProcessGribFile(sys_time, month, day, hour)
+				err, _, _ := gribSvc.DownloadAndProcessGribFile(sys_time, month, day, hour)
 				if err != nil {
 					s.Logger.Errorf("Download grib file failed: %v", err)
 				} else {

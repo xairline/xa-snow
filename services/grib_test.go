@@ -46,17 +46,38 @@ func (m *MockLogger) Errorf(format string, args ...interface{}) {
 	m.Called(format, args)
 }
 
+var (
+	service 	GribService
+	p2x			Phys2XPlane
+	mockLogger	*MockLogger
+)
+
 func TestDownloadGribFile(t *testing.T) {
 	os.Unsetenv("USE_SNOD_CSV")
 
-	mockLogger := new(MockLogger)
+	mockLogger = new(MockLogger)
 	mockLogger.On("Infof", mock.Anything, mock.Anything).Return()
 	mockLogger.On("Errorf", mock.Anything, mock.Anything).Return()
 
-	service := NewGribService(mockLogger, ".", "bin")
-	p2x := NewPhys2XPlane(mockLogger)
+	service = NewGribService(mockLogger, ".", "bin", NewCoastService(mockLogger, ".."))
+	p2x = NewPhys2XPlane(mockLogger)
 
-	_ = service.DownloadAndProcessGribFile(true, 0, 0, 0)
-	p2x.SnowDepthToXplaneSnowNow(service.GetSnowDepth(45.325356, -75.672249))
+	_, _, _ = service.DownloadAndProcessGribFile(true, 0, 0, 0)
 	mockLogger.AssertCalled(t, "Infof", "Downloading GRIB file from %s", mock.Anything)
+}
+
+func TestWrap(t *testing.T) {
+
+	// call at a few locations that wrap indices and are prone to range violations
+	// just check whether it bombs
+	p2x.SnowDepthToXplaneSnowNow(service.GetSnowDepth(51, 0.1))
+	p2x.SnowDepthToXplaneSnowNow(service.GetSnowDepth(51, -0.1))
+	p2x.SnowDepthToXplaneSnowNow(service.GetSnowDepth(51, 0.1))
+	p2x.SnowDepthToXplaneSnowNow(service.GetSnowDepth(51, -0.1))
+	p2x.SnowDepthToXplaneSnowNow(service.GetSnowDepth(-50, 180))
+	p2x.SnowDepthToXplaneSnowNow(service.GetSnowDepth(-50, -180))
+	p2x.SnowDepthToXplaneSnowNow(service.GetSnowDepth(-50, 179.9))
+	p2x.SnowDepthToXplaneSnowNow(service.GetSnowDepth(-50, -179.9))
+	p2x.SnowDepthToXplaneSnowNow(service.GetSnowDepth(90, 179.9))
+	p2x.SnowDepthToXplaneSnowNow(service.GetSnowDepth(-90, -179.9))
 }
