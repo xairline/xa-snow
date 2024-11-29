@@ -1,4 +1,4 @@
-//go:build !test
+//go:build ignore
 
 package main
 
@@ -46,44 +46,44 @@ func (m *MyLogger) Errorf(format string, a ...interface{}) {
 }
 
 func main() {
-	Logger := new(MyLogger)
-	Logger.Info("startup")
-	gs := services.NewGribService(Logger, ".", "bin")
+	logger := new(MyLogger)
+	logger.Info("startup")
+	gs := services.NewGribService(logger, ".", "bin", services.NewCoastService(logger, "."))
 	//_, _ = gs.DownloadAndProcessGribFile(true, 0, 0, 0)
-	_, m := gs.DownloadAndProcessGribFile(false, 01, 03, 18)
+	_, m, _ := gs.DownloadAndProcessGribFile(false, 01, 03, 18)
 
-	p2s := services.NewPhys2XPlane(Logger)
+	p2s := services.NewPhys2XPlane(logger)
 
 	for !gs.IsReady() {
-		Logger.Info("waiting for ready")
+		logger.Info("waiting for ready")
 		time.Sleep(1)
 	}
 
 	v := m.GetIdx(1820, 1253)
-	Logger.Infof("m.GetIdx: %f", v)
+	logger.Infof("m.GetIdx: %f", v)
 	s := gs.GetSnowDepth(51.418441, 9.387076)
 	sd, saw, icen := p2s.SnowDepthToXplaneSnowNow(s)
-	Logger.Infof("s = %0.2f, saw = %0.2f, icen = %0.2f", sd, saw, icen)
+	logger.Infof("s = %0.2f, saw = %0.2f, icen = %0.2f", sd, saw, icen)
 
 	s = gs.GetSnowDepth(51.48, 9.387076)
 	sd, saw, icen = p2s.SnowDepthToXplaneSnowNow(s)
-	Logger.Infof("s = %0.2f, saw = %0.2f, icen = %0.2f", sd, saw, icen)
+	logger.Infof("s = %0.2f, saw = %0.2f, icen = %0.2f", sd, saw, icen)
 
 	s = gs.GetSnowDepth(51.51, 9.37)
 	sd, saw, icen = p2s.SnowDepthToXplaneSnowNow(s)
-	Logger.Infof("s = %0.2f, saw = %0.2f, icen = %0.2f", sd, saw, icen)
+	logger.Infof("s = %0.2f, saw = %0.2f, icen = %0.2f", sd, saw, icen)
 
 	s = gs.GetSnowDepth(51.418441, 9.42) // to the east
 	sd, saw, icen = p2s.SnowDepthToXplaneSnowNow(s)
-	Logger.Infof("s = %0.2f, saw = %0.2f, icen = %0.2f", sd, saw, icen)
+	logger.Infof("s = %0.2f, saw = %0.2f, icen = %0.2f", sd, saw, icen)
 
 	s = gs.GetSnowDepth(51.5, 9.38)
 	sd, saw, icen = p2s.SnowDepthToXplaneSnowNow(s)
-	Logger.Infof("s = %0.2f, saw = %0.2f, icen = %0.2f", sd, saw, icen)
+	logger.Infof("s = %0.2f, saw = %0.2f, icen = %0.2f", sd, saw, icen)
 
 	s = gs.GetSnowDepth(51.51, 9.38)
 	sd, saw, icen = p2s.SnowDepthToXplaneSnowNow(s)
-	Logger.Infof("s = %0.2f, saw = %0.2f, icen = %0.2f", sd, saw, icen)
+	logger.Infof("s = %0.2f, saw = %0.2f, icen = %0.2f", sd, saw, icen)
 
 	fmt.Println("-----------------------------------------")
 	s = gs.GetSnowDepth(51.49, 9.37)
