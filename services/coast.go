@@ -13,16 +13,17 @@ import (
 const n_wm = 3600
 const m_wm = 1800
 
+// we use a "grid direction" = 360°/45° in standard math convention
+// 0 -> x, 2 -> y, 4 -> -x, ...
 var (
 	dir_x = [8]int{1, 1, 0, -1, -1, -1,  0,  1}
 	dir_y = [8]int{0, 1, 1,  1,  0, -1, -1, -1}
 )
 
-
 type CoastService interface {
 	IsWater(i, j int) bool
 	IsLand(i, j int) bool
-	IsCoast(i, j int) (bool, int, int, int)	// -> yes_no, step_x, step_y, grid angle
+	IsCoast(i, j int) (bool, int, int, int)	// -> yes_no, dir_x, dir_y, grid angle
 }
 
 const (
@@ -37,38 +38,33 @@ type coastService struct {
 	wmap [n_wm][m_wm]uint8		// encoded as (dir << 2)|sXxx
 }
 
-func (cs *coastService)IsWater(i, j int) bool {
+func wrap_ij(i, j int) (int, int) {
 	if i >= n_wm {
 		i -= n_wm
 	} else if i < 0 {
 		i += n_wm
 	}
 
-	if j > m_wm {
-		j = m_wm
+	if j >= m_wm {
+		j = m_wm - 1
 	} else if j < 0 {
 		j = 0
 	}
+	return i, j
+}
 
+func (cs *coastService)IsWater(i, j int) bool {
+	i, j = wrap_ij(i, j)
 	return (cs.wmap[i][j] & 0x3) == sWater
 }
 
 func (cs *coastService)IsLand(i, j int) bool {
-	if i >= n_wm {
-		i -= n_wm
-	} else if i < 0 {
-		i += n_wm
-	}
-
-	if j > m_wm {
-		j = m_wm
-	} else if j < 0 {
-		j = 0
-	}
+	i, j = wrap_ij(i, j)
 	return (cs.wmap[i][j] & 0x3) == sLand
 }
 
 func (cs *coastService)IsCoast(i, j int) (bool, int, int, int) {
+	// is currently not called with wrapped coordinates
 	if j >= m_wm {
 		return false, 0, 0, 0
 	}
@@ -102,22 +98,7 @@ func NewCoastService(logger logger.Logger, dir string) CoastService {
 
 	is_water := func (i, j int) bool {
 		j = m_wm - j	// for the image (0,0) is top left to flip y values
-		if i > n_wm {
-			i -= n_wm
-		}
-
-		if i < 0 {
-			i += n_wm
-		}
-
-		if j > m_wm {
-			j = m_wm
-		}
-
-		if j < 0 {
-			j = 0
-		}
-
+		i, j = wrap_ij(i, j)
 		r, _, _, _ := omap.At(i, j).RGBA()
 		return r == 0
 	}
@@ -132,6 +113,7 @@ func NewCoastService(logger logger.Logger, dir string) CoastService {
 		for j := 10;  j < m_wm - 10; j++ {	// stay away from the poles
 
 			// determined by visual adjustment
+			// could be one system is at point, the other at center of grid
 			i_cs := i - 3
 			j_cs := j - 3
 
@@ -144,7 +126,7 @@ func NewCoastService(logger logger.Logger, dir string) CoastService {
 			if is_water(i, j) {
 				cs.wmap[i_cs][j_cs] = sWater
 				// we check whether to the opposite side is only water and in direction 'dir' is land
-				// if yes we sum up all unitity vectors in dir to get the 'average' direction
+				// if yes we sum up all unity vectors in dir to get the 'average' direction
 				sum_x := float32(0)
 				sum_y := float32(0)
 				is_coast := false
@@ -154,7 +136,7 @@ func NewCoastService(logger logger.Logger, dir string) CoastService {
 					if is_water(i-2*di, j-2*dj) && is_water(i-di, j-dj) && is_land(i+di, j+dj) {
 						f := float32(1.0)
 						if dir & 1 == 1 {
-							f = 0.7071 // diagonal, sin(45) = cos(45) = 0.707
+							f = 0.7071 // diagonal = 1/sqrt(2)
 						}
 						sum_x += f * float32(di)
 						sum_y += f * float32(dj)

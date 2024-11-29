@@ -106,17 +106,14 @@ func (m *depthMap) GetIdx(iLon, iLat int) float32 {
 	// for lon we wrap around
 	if iLon >= n_iLon {
 		iLon -= n_iLon
-	}
-	if iLon < 0 {
+	} else if iLon < 0 {
 		iLon += n_iLon
 	}
 
 	// for lat we just confine, doesn't make a difference anyway
-	if iLat > n_iLat {
-		iLat = n_iLat
-	}
-
-	if iLat < 0 {
+	if iLat >= n_iLat {
+		iLat = n_iLat - 1
+	} else if iLat < 0 {
 		iLat = 0
 	}
 
@@ -204,47 +201,49 @@ func (g *gribService) GetSnowDepth(lat, lon float32) float32 {
 func (g *gribService) extendCoastalSnow() DepthMap {
 	new_dm := &depthMap{name: "Snow + Coast", Logger: g.Logger}
 
-	const min_sd = float32(0.02)
+	const min_sd = float32(0.02)	// only go higher than this snow depth
 
 	for i := 0; i < n_iLon; i++ {
 		for j := 0; j < n_iLat; j++ {
 			sd := g.SnowDm.GetIdx(i, j)
-			sdn := new_dm.val[i][j]		// may already be set inland extension
+			sdn := new_dm.val[i][j]		// may already be set by inland extension earlier
 			if sd > sdn {				// always maximize
 				new_dm.val[i][j] = sd
 			}
 
-			const max_step = 3
-			if is_coast, step_x, step_y, _ := g.cs.IsCoast(i, j); is_coast && sd <= min_sd {
+			const max_step = 3			// to look for inland snow ~ 5 to 10 km / step
+			if is_coast, dir_x, dir_y, _ := g.cs.IsCoast(i, j); is_coast && sd <= min_sd {
 				// look for inland snow
 				inland_dist := 0
 				inland_sd := float32(0)
 				for k:= 1; k <= max_step; k++ {
-					ii := i+k*step_x
-					jj := j+k*step_y
+					ii := i+k*dir_x
+					jj := j+k*dir_y
 
-					if k < max_step && g.cs.IsWater(ii, jj) {
+					if k < max_step && g.cs.IsWater(ii, jj) {	// if possible skip water
 						continue
 					}
 
 					tmp := g.SnowDm.GetIdx(ii, jj)
-					if tmp > sd && tmp > min_sd {
+					if tmp > sd && tmp > min_sd {		// found snow
 						inland_dist = k
 						inland_sd = tmp
 						break
 					}
 				}
 
+				const decay = float32(0.8)	// snow depth decay per step
 				if (inland_dist > 0) {
-					//g.Logger.Infof("Inland snow detected for (%d, %d) at dist %d, sd: %0.3f %0.3f", i, j, inland_dist, sd, inland_sd)
+					//g.Logger.Infof("Inland snow detected for (%d, %d) at dist %d, sd: %0.3f %0.3f",
+					//				 i, j, inland_dist, sd, inland_sd)
 
 					// use power law from inland point to coast line point
 					for k := inland_dist - 1; k >= 0; k-- {
-						inland_sd *= 0.8
+						inland_sd *= decay
 						if inland_sd < min_sd {
 							inland_sd = min_sd
 						}
-						new_dm.val[i+k*step_x][j+k*step_y] = inland_sd
+						new_dm.val[i+k*dir_x][j+k*dir_y] = inland_sd
 					}
 				}
 			}
