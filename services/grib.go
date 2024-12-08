@@ -1,9 +1,9 @@
 package services
 
 import (
-	"github.com/xairline/xa-snow/utils/logger"
 	"encoding/csv"
 	"fmt"
+	"github.com/xairline/xa-snow/utils/logger"
 	"io"
 	"net/http"
 	"os"
@@ -29,14 +29,14 @@ type DepthMap interface {
 }
 
 type depthMap struct {
-	Logger  logger.Logger
-	name    string
-	val     [n_iLon][n_iLat]float32
+	Logger logger.Logger
+	name   string
+	val    [n_iLon][n_iLat]float32
 }
 
 // grib + map service
 type GribService interface {
-	IsReady() bool // ready to retrieve values
+	IsReady() bool                                                                              // ready to retrieve values
 	DownloadAndProcessGribFile(sys_time bool, day, month, hour int) (error, DepthMap, DepthMap) // -> err, gribSnow, coastalSnow
 	GetSnowDepth(lat, lon float32) float32
 	convertGribToCsv(snow_csv_name string)
@@ -46,12 +46,12 @@ type GribService interface {
 }
 
 type gribService struct {
-	ready 		   bool
+	ready          bool
 	Logger         logger.Logger
 	gribFilePath   string
 	gribFileFolder string
 	binPath        string
-	cs			   CoastService
+	cs             CoastService
 	SnowDm         DepthMap
 }
 
@@ -173,7 +173,7 @@ func NewGribService(logger logger.Logger, dir string, binPath string, cs CoastSe
 			gribFileFolder: dir,
 			gribFilePath:   "",
 			binPath:        binPath,
-			cs:				cs,
+			cs:             cs,
 		}
 		// make sure grib file folder exists
 		if _, err := os.Stat(dir); os.IsNotExist(err) {
@@ -199,41 +199,41 @@ func (g *gribService) GetSnowDepth(lat, lon float32) float32 {
 func (g *gribService) extendCoastalSnow(gribSnow DepthMap) DepthMap {
 	new_dm := &depthMap{name: "Snow + Coast", Logger: g.Logger}
 
-	const min_sd = float32(0.02)	// only go higher than this snow depth
+	const min_sd = float32(0.02) // only go higher than this snow depth
 
 	n_extend := 0
 
 	for i := 0; i < n_iLon; i++ {
 		for j := 0; j < n_iLat; j++ {
 			sd := gribSnow.GetIdx(i, j)
-			sdn := new_dm.val[i][j]		// may already be set by inland extension earlier
-			if sd > sdn {				// always maximize
+			sdn := new_dm.val[i][j] // may already be set by inland extension earlier
+			if sd > sdn {           // always maximize
 				new_dm.val[i][j] = sd
 			}
 
-			const max_step = 3			// to look for inland snow ~ 5 to 10 km / step
+			const max_step = 3 // to look for inland snow ~ 5 to 10 km / step
 			if is_coast, dir_x, dir_y, _ := g.cs.IsCoast(i, j); is_coast && sd <= min_sd {
 				// look for inland snow
 				inland_dist := 0
 				inland_sd := float32(0)
-				for k:= 1; k <= max_step; k++ {
-					ii := i+k*dir_x
-					jj := j+k*dir_y
+				for k := 1; k <= max_step; k++ {
+					ii := i + k*dir_x
+					jj := j + k*dir_y
 
-					if k < max_step && g.cs.IsWater(ii, jj) {	// if possible skip water
+					if k < max_step && g.cs.IsWater(ii, jj) { // if possible skip water
 						continue
 					}
 
 					tmp := gribSnow.GetIdx(ii, jj)
-					if tmp > sd && tmp > min_sd {		// found snow
+					if tmp > sd && tmp > min_sd { // found snow
 						inland_dist = k
 						inland_sd = tmp
 						break
 					}
 				}
 
-				const decay = float32(0.8)	// snow depth decay per step
-				if (inland_dist > 0) {
+				const decay = float32(0.8) // snow depth decay per step
+				if inland_dist > 0 {
 					//g.Logger.Infof("Inland snow detected for (%d, %d) at dist %d, sd: %0.3f %0.3f",
 					//				 i, j, inland_dist, sd, inland_sd)
 
@@ -254,7 +254,6 @@ func (g *gribService) extendCoastalSnow(gribSnow DepthMap) DepthMap {
 	g.Logger.Infof("Extended costal snow on %d grid points", n_extend)
 	return new_dm
 }
-
 
 func (g *gribService) DownloadAndProcessGribFile(sys_time bool, month, day, hour int) (error, DepthMap, DepthMap) {
 	file_override := 0
@@ -364,6 +363,18 @@ func (g *gribService) downloadGribFile(sys_time bool, day, month, hour int) (str
 
 	now := time.Now()
 	timeUTC := now.UTC()
+	// Convert the provided day, month, and hour into a time.Time object
+	providedTime := time.Date(now.Year(), time.Month(month), day, hour, 0, 0, 0, time.UTC)
+
+	// Check if the provided time is within the last 24 hours
+	if providedTime.After(now.Add(-24*time.Hour)) && providedTime.Before(now) {
+		g.Logger.Infof("The provided time is within the last 24 hours. Using system time.")
+		sys_time = true
+	} else {
+		g.Logger.Infof("The provided time is not within the last 24 hours. Not using system time.")
+		sys_time = false
+	}
+
 	if !sys_time {
 		// historic mode
 
@@ -407,6 +418,9 @@ func (g *gribService) downloadGribFile(sys_time bool, day, month, hour int) (str
 			return "", err
 		}
 		defer out.Close()
+		if resp.StatusCode != 200 {
+			g.Logger.Errorf("Failed to download GRIB file: %s", resp.Status)
+		}
 
 		// Write the body to file
 		_, err = io.Copy(out, resp.Body)

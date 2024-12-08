@@ -210,18 +210,15 @@ func (s *xplaneService) flightLoop(
 		month := dataAccess.GetIntData(s.simCurrentMonth_dr)
 		hour := dataAccess.GetIntData(s.simLocalHours_dr)
 
-		go func() {
-			for {
-				err, _, _ := gribSvc.DownloadAndProcessGribFile(sys_time, month, day, hour)
-				if err != nil {
-					s.Logger.Errorf("Download grib file failed: %v", err)
-				} else {
-					// TODO: was this looping forever?
-					break
-				}
-				// TODO: disabled - auto NOAA update
+		for {
+			err, _, _ := gribSvc.DownloadAndProcessGribFile(sys_time, month, day, hour)
+			if err != nil {
+				s.Logger.Errorf("Download grib file failed: %v", err)
+			} else {
+				s.Logger.Info("Download and process grib file success")
+				break
 			}
-		}()
+		}
 
 		return 10.0
 	}
