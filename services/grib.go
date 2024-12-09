@@ -366,8 +366,8 @@ func (g *gribService) downloadGribFile(sys_time bool, day, month, hour int) (str
 	// Convert the provided day, month, and hour into a time.Time object
 	providedTime := time.Date(now.Year(), time.Month(month), day, hour, 0, 0, 0, time.UTC)
 
-	// Check if the provided time is within the last 24 hours
-	if providedTime.After(now.Add(-24*time.Hour)) && providedTime.Before(now) {
+	// Check if the provided time is within the last 24*7 hours
+	if providedTime.After(now.Add(-24*7*time.Hour)) && providedTime.Before(now) {
 		g.Logger.Infof("The provided time is within the last 24 hours. Using system time.")
 		sys_time = true
 	} else {
