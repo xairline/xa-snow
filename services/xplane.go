@@ -184,7 +184,6 @@ func (s *xplaneService) onPluginStart() {
 }
 
 func (s *xplaneService) onPluginStop() {
-	processing.UnregisterFlightLoopCallback(s.flightLoop, nil)
 	s.Logger.Info("Plugin stopped")
 }
 
