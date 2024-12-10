@@ -5,6 +5,7 @@ package services
 //go:generate mockgen -destination=./__mocks__/xplane.go -package=mocks -source=xplane.go
 
 import (
+	"context"
 	"github.com/joho/godotenv"
 	"github.com/xairline/goplane/extra"
 	"github.com/xairline/goplane/xplm/dataAccess"
@@ -56,6 +57,8 @@ type xplaneService struct {
 	myMenuItemIndex, myMenuItemIndex2 int
 
 	configFilePath string
+
+	cancelFun context.CancelFunc
 }
 
 // private drefs need delayed initialization
@@ -98,18 +101,19 @@ func NewXplaneService(
 
 		systemPath := utilities.GetSystemPath()
 		pluginPath := filepath.Join(systemPath, "Resources", "plugins", "XA-snow")
-
+		_, cancelFunc := context.WithCancel(context.Background())
 		xplaneSvc := &xplaneService{
 			Plugin: extra.NewPlugin("X Airline Snow - "+VERSION, "com.github.xairline.xa-snow", "show accumulated snow in X-Plane's world"),
 			GribService: NewGribService(logger,
 				path.Join(systemPath, "Output", "snow"),
 				filepath.Join(pluginPath, "bin"),
 				NewCoastService(logger, pluginPath)),
-			p2x:      NewPhys2XPlane(logger),
-			Logger:   logger,
-			disabled: false,
-			override: false,
-			rwyIce:   true,
+			p2x:       NewPhys2XPlane(logger),
+			Logger:    logger,
+			disabled:  false,
+			override:  false,
+			rwyIce:    true,
+			cancelFun: cancelFunc,
 		}
 		xplaneSvc.Plugin.SetPluginStateCallback(xplaneSvc.onPluginStateChanged)
 		xplaneSvc.Plugin.SetMessageHandler(xplaneSvc.messageHandler)
@@ -185,6 +189,7 @@ func (s *xplaneService) onPluginStart() {
 
 func (s *xplaneService) onPluginStop() {
 	s.Logger.Info("Plugin stopped")
+	s.cancelFun()
 }
 
 // flightloop, high freq code!
