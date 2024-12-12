@@ -20,6 +20,7 @@ import (
 	"runtime"
 	"strconv"
 	"sync"
+	"time"
 )
 
 var VERSION = "development"
@@ -45,16 +46,17 @@ type xplaneService struct {
 	snow_dr, ice_dr,
 	rwySnowCover_dr dataAccess.DataRef
 
-	Logger   logger.Logger
-	disabled bool
-	override bool
-	rwyIce   bool
+	Logger     logger.Logger
+	disabled   bool
+	override   bool
+	rwyIce     bool
+	historical bool
 
 	loopCnt                                  uint32
 	snowDepth, snowNow, iceNow, rwySnowCover float32
 
-	myMenuId                          menus.MenuID
-	myMenuItemIndex, myMenuItemIndex2 int
+	myMenuId                                            menus.MenuID
+	myMenuItemIndex, myMenuItemIndex2, myMenuItemIndex3 int
 
 	configFilePath string
 
@@ -108,12 +110,13 @@ func NewXplaneService(
 				path.Join(systemPath, "Output", "snow"),
 				filepath.Join(pluginPath, "bin"),
 				NewCoastService(logger, pluginPath)),
-			p2x:       NewPhys2XPlane(logger),
-			Logger:    logger,
-			disabled:  false,
-			override:  false,
-			rwyIce:    true,
-			cancelFun: cancelFunc,
+			p2x:        NewPhys2XPlane(logger),
+			Logger:     logger,
+			disabled:   false,
+			override:   false,
+			rwyIce:     true,
+			historical: false,
+			cancelFun:  cancelFunc,
 		}
 		xplaneSvc.Plugin.SetPluginStateCallback(xplaneSvc.onPluginStateChanged)
 		xplaneSvc.Plugin.SetMessageHandler(xplaneSvc.messageHandler)
@@ -173,6 +176,7 @@ func (s *xplaneService) onPluginStart() {
 	s.myMenuId = menus.CreateMenu("X Airline Snow", menuId, menuContainerId, s.menuHandler, nil)
 	s.myMenuItemIndex = menus.AppendMenuItem(s.myMenuId, "Toggle Override", 0, true)
 	s.myMenuItemIndex2 = menus.AppendMenuItem(s.myMenuId, "Lock Elsa up (ice)", 1, true)
+	s.myMenuItemIndex3 = menus.AppendMenuItem(s.myMenuId, "Enable Historical Snow", 2, true)
 	if s.override {
 		menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex, menus.Menu_Checked)
 	} else {
@@ -182,6 +186,11 @@ func (s *xplaneService) onPluginStart() {
 		menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex2, menus.Menu_Checked)
 	} else {
 		menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex2, menus.Menu_Unchecked)
+	}
+	if s.historical {
+		menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex3, menus.Menu_Checked)
+	} else {
+		menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex3, menus.Menu_Unchecked)
 	}
 
 	// set internal vars to known "no snow" state
@@ -215,6 +224,13 @@ func (s *xplaneService) flightLoop(
 		day := dataAccess.GetIntData(s.simCurrentDay_dr)
 		month := dataAccess.GetIntData(s.simCurrentMonth_dr)
 		hour := dataAccess.GetIntData(s.simLocalHours_dr)
+		if !s.historical {
+			s.Logger.Infof("Historical snow is enabled: %v", s.historical)
+			sys_time = true
+			day = time.Now().Day()
+			month = int(time.Now().Month())
+			hour = time.Now().Hour()
+		}
 
 		go func() {
 			for i := 0; i < 3; i++ {
@@ -309,11 +325,22 @@ func (s *xplaneService) menuHandler(menuRef interface{}, itemRef interface{}) {
 		}
 		s.Logger.Infof("Rwy Ice: %v", s.rwyIce)
 	}
+	if itemRef.(int) == 2 {
+		s.historical = !s.historical
+		if s.historical {
+			menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex2, menus.Menu_Checked)
+		} else {
+			menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex2, menus.Menu_Unchecked)
+
+		}
+		s.Logger.Infof("Rwy Ice: %v", s.rwyIce)
+	}
 
 	// write to config
 	err := godotenv.Write(map[string]string{
-		"OVERRIDE": strconv.FormatBool(s.override),
-		"RWY_ICE":  strconv.FormatBool(s.rwyIce),
+		"OVERRIDE":   strconv.FormatBool(s.override),
+		"RWY_ICE":    strconv.FormatBool(s.rwyIce),
+		"HISTORICAL": strconv.FormatBool(s.historical),
 	}, s.configFilePath)
 	if err != nil {
 		s.Logger.Errorf("Error writing to config: %v", err)
