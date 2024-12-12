@@ -145,7 +145,8 @@ func (s *xplaneService) onPluginStart() {
 	s.configFilePath = filepath.Join(systemPath, "Output", "preferences", "xa-snow.prf")
 	err := godotenv.Load(s.configFilePath)
 	if err != nil {
-		s.Logger.Errorf("Some error occured. Err: %s", err)
+		s.Logger.Warningf("Some error occured. Err: %s", err)
+		s.Logger.Warning("The prf file is not required. It is used to store the state of the plugin")
 	}
 	if os.Getenv("OVERRIDE") == "true" {
 		s.override = true
