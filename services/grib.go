@@ -244,7 +244,22 @@ func (g *gribService) extendCoastalSnow(gribSnow DepthMap) DepthMap {
 						if inland_sd < min_sd {
 							inland_sd = min_sd
 						}
-						new_dm.val[i+k*dir_x][j+k*dir_y] = inland_sd
+						x := i + k*dir_x
+						if x > 3600 {
+							x = i + k*dir_x - 3600
+						}
+						if x < 0 {
+							x = i + k*dir_x + 3600
+						}
+						y := j + k*dir_y
+						if y > 1801 {
+							y = y - 1801
+						}
+						if y < 0 {
+							y = y + 1801
+						}
+
+						new_dm.val[x][y] = inland_sd
 
 						n_extend++
 					}
@@ -253,7 +268,22 @@ func (g *gribService) extendCoastalSnow(gribSnow DepthMap) DepthMap {
 
 					for water_extent_step := inland_dist; water_extent_step < inland_dist+max_water_extend_steps; water_extent_step++ {
 						if g.cs.IsWater(i+water_extent_step*dir_x, j+water_extent_step*dir_y) {
-							new_dm.val[i+water_extent_step*dir_x][j+water_extent_step*dir_y] = inland_sd
+							x := i + water_extent_step*dir_x
+							if x > 3600 {
+								x = i + water_extent_step*dir_x - 3600
+							}
+							if x < 0 {
+								x = i + water_extent_step*dir_x + 3600
+							}
+							y := j + water_extent_step*dir_y
+							if y > 1801 {
+								y = y - 1801
+							}
+							if y < 0 {
+								y = y + 1801
+							}
+
+							new_dm.val[x][y] = inland_sd
 							n_water_extend++
 						} else {
 							break
