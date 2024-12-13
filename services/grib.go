@@ -220,10 +220,6 @@ func (g *gribService) extendCoastalSnow(gribSnow DepthMap) DepthMap {
 					ii := i + k*dir_x
 					jj := j + k*dir_y
 
-					if k < max_step { // if possible skip water
-						continue
-					}
-
 					tmp := gribSnow.GetIdx(ii, jj)
 					if tmp > sd && tmp > min_sd { // found snow
 						inland_dist = k
@@ -245,14 +241,14 @@ func (g *gribService) extendCoastalSnow(gribSnow DepthMap) DepthMap {
 							inland_sd = min_sd
 						}
 						x := i + k*dir_x
-						if x > 3600 {
-							x = i + k*dir_x - 3600
+						if x >= 3600 {
+							x = x - 3600
 						}
 						if x < 0 {
-							x = i + k*dir_x + 3600
+							x = x + 3600
 						}
 						y := j + k*dir_y
-						if y > 1801 {
+						if y >= 1801 {
 							y = y - 1801
 						}
 						if y < 0 {
@@ -264,19 +260,19 @@ func (g *gribService) extendCoastalSnow(gribSnow DepthMap) DepthMap {
 						n_extend++
 					}
 					// let's extend the coast line a bit if it is truly coastal
-					max_water_extend_steps := 5
+					max_water_extend_steps := 50
 
 					for water_extent_step := inland_dist; water_extent_step < inland_dist+max_water_extend_steps; water_extent_step++ {
 						if g.cs.IsWater(i+water_extent_step*dir_x, j+water_extent_step*dir_y) {
 							x := i + water_extent_step*dir_x
-							if x > 3600 {
-								x = i + water_extent_step*dir_x - 3600
+							if x >= 3600 {
+								x = x - 3600
 							}
 							if x < 0 {
-								x = i + water_extent_step*dir_x + 3600
+								x = x + 3600
 							}
 							y := j + water_extent_step*dir_y
-							if y > 1801 {
+							if y >= 1801 {
 								y = y - 1801
 							}
 							if y < 0 {
@@ -284,6 +280,7 @@ func (g *gribService) extendCoastalSnow(gribSnow DepthMap) DepthMap {
 							}
 
 							new_dm.val[x][y] = inland_sd
+							g.Logger.Infof("Extended water on (%d, %d) with %0.3f", x, y, inland_sd)
 							n_water_extend++
 						} else {
 							break
