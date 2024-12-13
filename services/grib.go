@@ -243,7 +243,21 @@ func (g *gribService) extendCoastalSnow(gribSnow DepthMap) DepthMap {
 						if inland_sd < min_sd {
 							inland_sd = min_sd
 						}
-						new_dm.val[i+k*dir_x][j+k*dir_y] = inland_sd
+						x := i + k*dir_x
+						y := j + k*dir_y
+						if x >= 3600 {
+							x -= 3600
+						}
+						if x < 0 {
+							x += 3600
+						}
+						if y >= 1801 {
+							y -= 1801
+						}
+						if y < 0 {
+							y += 1801
+						}
+						new_dm.val[x][y] = inland_sd
 						n_extend++
 					}
 				}
@@ -367,12 +381,9 @@ func (g *gribService) downloadGribFile(sys_time bool, day, month, hour int) (str
 	providedTime := time.Date(now.Year(), time.Month(month), day, hour, 0, 0, 0, time.UTC)
 
 	// Check if the provided time is within the last 24 hours
-	if providedTime.After(now.Add(-24*time.Hour)) && providedTime.Before(now) {
+	if providedTime.After(now.Add(-24*time.Hour)) && providedTime.Before(now) && !sys_time {
 		g.Logger.Infof("The provided time is within the last 24 hours. Using system time.")
 		sys_time = true
-	} else {
-		g.Logger.Infof("The provided time is not within the last 24 hours. Not using system time.")
-		sys_time = false
 	}
 
 	if !sys_time {
