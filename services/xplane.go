@@ -61,6 +61,8 @@ type xplaneService struct {
 	configFilePath string
 
 	cancelFun context.CancelFunc
+
+	downloadGribLock sync.Mutex
 }
 
 // private drefs need delayed initialization
@@ -233,6 +235,15 @@ func (s *xplaneService) flightLoop(
 		}
 
 		go func() {
+			// Check if the mutex is locked without blocking
+			locked := !s.downloadGribLock.TryLock()
+			if locked {
+				s.Logger.Infof("Another download is in progress, skipping this one")
+				return
+			}
+			s.downloadGribLock.Lock()
+			s.Logger.Infof("Download grib file: lock accuired")
+			defer s.downloadGribLock.Unlock()
 			for i := 0; i < 3; i++ {
 				err, _, _ := gribSvc.DownloadAndProcessGribFile(sys_time, month, day, hour)
 				if err != nil {
