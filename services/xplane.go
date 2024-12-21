@@ -236,18 +236,13 @@ func (s *xplaneService) flightLoop(
 
 		go func() {
 			// Check if the mutex is locked without blocking
-			locked := !s.downloadGribLock.TryLock()
-			if locked {
-				s.Logger.Infof("Another download is in progress, skipping this one")
-				return
-			}
 			s.downloadGribLock.Lock()
 			s.Logger.Infof("Download grib file: lock accuired")
 			defer s.downloadGribLock.Unlock()
 			for i := 0; i < 3; i++ {
 				err, _, _ := gribSvc.DownloadAndProcessGribFile(sys_time, month, day, hour)
 				if err != nil {
-					s.Logger.Errorf("Download grib file failed: %v", err)
+					s.Logger.Errorf("Download grib file failed: %v, retry: %v", err, i)
 				} else {
 					s.Logger.Info("Download and process grib file success")
 					break
