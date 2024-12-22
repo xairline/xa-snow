@@ -43,6 +43,7 @@ type GribService interface {
 	downloadGribFile(sys_time bool, day, month, hour int) (string, error)
 	getDownloadUrl(sys_time bool, timeUTC time.Time) (string, time.Time, int)
 	extendCoastalSnow(gribSnow DepthMap) DepthMap
+	SetNotReady()
 }
 
 type gribService struct {
@@ -53,6 +54,10 @@ type gribService struct {
 	binPath        string
 	cs             CoastService
 	SnowDm         DepthMap
+}
+
+func (g *gribService) SetNotReady() {
+	g.ready = false
 }
 
 // load csv file into depth map

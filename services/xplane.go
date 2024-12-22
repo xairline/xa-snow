@@ -215,6 +215,7 @@ func (s *xplaneService) flightLoop(
 	// flightloop start is the first point in time where the time datarefs are set correctly
 	if s.loopCnt == 0 {
 		s.loopCnt++
+		s.GribService.SetNotReady()
 		s.Logger.Info("Flightloop starting, kicking off")
 
 		// delayed init
@@ -244,10 +245,13 @@ func (s *xplaneService) flightLoop(
 				if err != nil {
 					s.Logger.Errorf("Download grib file failed: %v, retry: %v", err, i)
 				} else {
-					s.Logger.Info("Download and process grib file success")
-					break
+					s.Logger.Info("Download and process grib file successfully")
+					return
 				}
 			}
+			// if we came here, which means 3 retry failed
+			// there is a problem
+			s.Logger.Errorf("grib download/process: all retry failed")
 			return
 		}()
 
@@ -263,6 +267,7 @@ func (s *xplaneService) flightLoop(
 	}
 
 	if !s.GribService.IsReady() {
+		s.Logger.Warning("Processing grib data is still in progress")
 		return 2.0
 	}
 
@@ -304,7 +309,7 @@ func (s *xplaneService) flightLoop(
 
 func (s *xplaneService) messageHandler(message plugins.Message) {
 	if message.MessageId == plugins.MSG_PLANE_LOADED || message.MessageId == plugins.MSG_SCENERY_LOADED {
-		s.Logger.Info("Plane/Scenery loaded")
+		s.Logger.Infof("Plane/Scenery loaded: %v", message.MessageId)
 		s.loopCnt = 0 // reset loop counter so we download the new grib files
 	}
 }
