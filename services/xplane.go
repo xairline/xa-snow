@@ -158,6 +158,8 @@ func (s *xplaneService) onPluginStart() {
 	}
 	if os.Getenv("RWY_ICE") == "true" {
 		s.rwyIce = true
+	} else {
+		s.rwyIce = false
 	}
 
 	// API drefs are available at plugin start
@@ -344,7 +346,7 @@ func (s *xplaneService) menuHandler(menuRef interface{}, itemRef interface{}) {
 			menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex2, menus.Menu_Unchecked)
 
 		}
-		s.Logger.Infof("Rwy Ice: %v", s.rwyIce)
+		s.Logger.Infof("Historical: %v", s.historical)
 	}
 
 	// write to config
