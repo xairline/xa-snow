@@ -51,12 +51,13 @@ type xplaneService struct {
 	override   bool
 	rwyIce     bool
 	historical bool
+	autoUpdate bool
 
 	loopCnt                                  uint32
 	snowDepth, snowNow, iceNow, rwySnowCover float32
 
-	myMenuId                                            menus.MenuID
-	myMenuItemIndex, myMenuItemIndex2, myMenuItemIndex3 int
+	myMenuId                                                              menus.MenuID
+	myMenuItemIndex, myMenuItemIndex2, myMenuItemIndex3, myMenuItemIndex4 int
 
 	configFilePath string
 
@@ -118,7 +119,9 @@ func NewXplaneService(
 			override:   false,
 			rwyIce:     true,
 			historical: false,
+			autoUpdate: true,
 			cancelFun:  cancelFunc,
+			loopCnt:    0,
 		}
 		xplaneSvc.Plugin.SetPluginStateCallback(xplaneSvc.onPluginStateChanged)
 		xplaneSvc.Plugin.SetMessageHandler(xplaneSvc.messageHandler)
@@ -161,6 +164,16 @@ func (s *xplaneService) onPluginStart() {
 	} else {
 		s.rwyIce = false
 	}
+	if os.Getenv("HISTORICAL") == "true" {
+		s.historical = true
+	} else {
+		s.historical = false
+	}
+	if os.Getenv("AUTOUPDATE") == "false" {
+		s.autoUpdate = false
+	} else {
+		s.autoUpdate = true
+	}
 
 	// API drefs are available at plugin start
 	s.lat_dr, _ = dataAccess.FindDataRef("sim/flightmodel/position/latitude")
@@ -181,6 +194,7 @@ func (s *xplaneService) onPluginStart() {
 	s.myMenuItemIndex = menus.AppendMenuItem(s.myMenuId, "Toggle Override", 0, true)
 	s.myMenuItemIndex2 = menus.AppendMenuItem(s.myMenuId, "Lock Elsa up (ice)", 1, true)
 	s.myMenuItemIndex3 = menus.AppendMenuItem(s.myMenuId, "Enable Historical Snow", 2, true)
+	s.myMenuItemIndex4 = menus.AppendMenuItem(s.myMenuId, "Enable Snow Depth Auto Update", 3, true)
 	if s.override {
 		menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex, menus.Menu_Checked)
 	} else {
@@ -195,6 +209,11 @@ func (s *xplaneService) onPluginStart() {
 		menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex3, menus.Menu_Checked)
 	} else {
 		menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex3, menus.Menu_Unchecked)
+	}
+	if s.autoUpdate {
+		menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex4, menus.Menu_Checked)
+	} else {
+		menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex4, menus.Menu_Unchecked)
 	}
 
 	// set internal vars to known "no snow" state
@@ -310,7 +329,7 @@ func (s *xplaneService) flightLoop(
 }
 
 func (s *xplaneService) messageHandler(message plugins.Message) {
-	if message.MessageId == plugins.MSG_PLANE_LOADED || message.MessageId == plugins.MSG_SCENERY_LOADED {
+	if (message.MessageId == plugins.MSG_PLANE_LOADED || message.MessageId == plugins.MSG_SCENERY_LOADED) && s.autoUpdate {
 		s.Logger.Infof("Plane/Scenery loaded: %v", message.MessageId)
 		s.loopCnt = 0 // reset loop counter so we download the new grib files
 	}
@@ -341,12 +360,22 @@ func (s *xplaneService) menuHandler(menuRef interface{}, itemRef interface{}) {
 	if itemRef.(int) == 2 {
 		s.historical = !s.historical
 		if s.historical {
-			menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex2, menus.Menu_Checked)
+			menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex3, menus.Menu_Checked)
 		} else {
-			menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex2, menus.Menu_Unchecked)
+			menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex3, menus.Menu_Unchecked)
 
 		}
 		s.Logger.Infof("Historical: %v", s.historical)
+	}
+	if itemRef.(int) == 3 {
+		s.autoUpdate = !s.autoUpdate
+		if s.autoUpdate {
+			menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex4, menus.Menu_Checked)
+		} else {
+			menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex4, menus.Menu_Unchecked)
+
+		}
+		s.Logger.Infof("NOAA Auto update: %v", s.autoUpdate)
 	}
 
 	// write to config
@@ -354,6 +383,7 @@ func (s *xplaneService) menuHandler(menuRef interface{}, itemRef interface{}) {
 		"OVERRIDE":   strconv.FormatBool(s.override),
 		"RWY_ICE":    strconv.FormatBool(s.rwyIce),
 		"HISTORICAL": strconv.FormatBool(s.historical),
+		"AUTOUPDATE": strconv.FormatBool(s.autoUpdate),
 	}, s.configFilePath)
 	if err != nil {
 		s.Logger.Errorf("Error writing to config: %v", err)
