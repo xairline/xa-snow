@@ -119,7 +119,7 @@ func NewXplaneService(
 			override:   false,
 			rwyIce:     true,
 			historical: false,
-			autoUpdate: true,
+			autoUpdate: false,
 			cancelFun:  cancelFunc,
 			loopCnt:    0,
 		}
@@ -169,10 +169,10 @@ func (s *xplaneService) onPluginStart() {
 	} else {
 		s.historical = false
 	}
-	if os.Getenv("AUTOUPDATE") == "false" {
-		s.autoUpdate = false
-	} else {
+	if os.Getenv("AUTOUPDATE") == "true" {
 		s.autoUpdate = true
+	} else {
+		s.autoUpdate = false
 	}
 
 	// API drefs are available at plugin start
