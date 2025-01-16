@@ -318,7 +318,7 @@ func (s *xplaneService) flightLoop(
 
 	if !s.rwyIce {
 		s.iceNow = 2
-		s.rwySnowCover = 0.25
+		s.rwySnowCover = 0
 	}
 
 	dataAccess.SetFloatData(s.snow_dr, s.snowNow)
