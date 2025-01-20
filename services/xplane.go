@@ -44,7 +44,7 @@ type xplaneService struct {
 	weatherMode_dr,
 	sysTime_dr, simCurrentDay_dr, simCurrentMonth_dr, simLocalHours_dr,
 	snow_dr, ice_dr,
-	rwySnowCover_dr dataAccess.DataRef
+	rwySnowCover_dr, rwyCond_dr dataAccess.DataRef
 
 	Logger     logger.Logger
 	disabled   bool
@@ -79,6 +79,8 @@ func initDrefs(s *xplaneService) bool {
 
 		s.rwySnowCover_dr, res = dataAccess.FindDataRef("sim/private/controls/twxr/snow_area_width")
 		success = success && res
+
+		s.rwyCond_dr, res = dataAccess.FindDataRef("sim/weather/region/runway_friction")
 
 		if !success {
 			s.Logger.Error("Dataref(s) not found")
@@ -319,6 +321,7 @@ func (s *xplaneService) flightLoop(
 	if !s.rwyIce {
 		s.iceNow = 2
 		s.rwySnowCover = 0
+		dataAccess.SetFloatData(s.rwyCond_dr, 0.0)
 	}
 
 	dataAccess.SetFloatData(s.snow_dr, s.snowNow)
