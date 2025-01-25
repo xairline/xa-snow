@@ -329,7 +329,7 @@ func (s *xplaneService) flightLoop(
 	dataAccess.SetFloatData(s.ice_dr, s.iceNow)
 	rwyCond := dataAccess.GetFloatData(s.rwyCond_dr)
 	if rwyCond >= 4 {
-		rwyCond = (rwyCond+1)/15*5 - 1
+		rwyCond = rwyCond / 3
 		dataAccess.SetFloatData(s.rwyCond_dr, rwyCond)
 	}
 
