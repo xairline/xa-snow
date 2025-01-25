@@ -327,6 +327,11 @@ func (s *xplaneService) flightLoop(
 	dataAccess.SetFloatData(s.snow_dr, s.snowNow)
 	dataAccess.SetFloatData(s.rwySnowCover_dr, s.rwySnowCover)
 	dataAccess.SetFloatData(s.ice_dr, s.iceNow)
+	rwyCond := dataAccess.GetFloatData(s.rwyCond_dr)
+	if rwyCond >= 4 {
+		rwyCond = (rwyCond+1)/15*5 - 1
+		dataAccess.SetFloatData(s.rwyCond_dr, rwyCond)
+	}
 
 	return -1
 }
