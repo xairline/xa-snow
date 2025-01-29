@@ -31,6 +31,10 @@ var (
 )
 
 func (p2x *phys2XPlane) SnowDepthToXplaneSnowNow(depth float32) (float32, float32, float32) {
+	if depth > MaxSnowDepth {
+		depth = MaxSnowDepth
+	}
+
 	if depth >= snowDepthTab[len(snowDepthTab)-1] {
 		return snowNowTab[len(snowNowTab)-1], snowAreaWidthTab[len(snowAreaWidthTab)-1],
 			   iceNowTab[len(iceNowTab)-1]

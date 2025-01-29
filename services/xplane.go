@@ -24,6 +24,7 @@ import (
 )
 
 var VERSION = "development"
+var MaxSnowDepth float32
 
 type XplaneService interface {
 	// init
@@ -33,6 +34,11 @@ type XplaneService interface {
 	// flight loop
 	flightLoop(elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop float32, counter int, ref interface{}) float32
 }
+
+var (
+	maxSnowMenuVal = [4]float32{1.00, 0.10, 0.08, 0.05}
+	maxSnowMenuTxt = [4]string{"Unlimited", "0.10", "0.08", "0.05"}
+)
 
 type xplaneService struct {
 	Plugin      *extra.XPlanePlugin
@@ -58,6 +64,10 @@ type xplaneService struct {
 
 	myMenuId                                                              menus.MenuID
 	myMenuItemIndex, myMenuItemIndex2, myMenuItemIndex3, myMenuItemIndex4 int
+
+	maxSnowMenuId menus.MenuID
+	maxSnowMenuItem [4]int
+	maxSnowSelected int // item selected
 
 	configFilePath string
 
@@ -177,6 +187,17 @@ func (s *xplaneService) onPluginStart() {
 		s.autoUpdate = false
 	}
 
+	if os.Getenv("AUTOUPDATE") == "true" {
+		s.autoUpdate = true
+	} else {
+		s.autoUpdate = false
+	}
+
+	val, err := strconv.Atoi(os.Getenv("MAX_SNOW_SELECTED"))
+	if err != nil {
+		s.maxSnowSelected = val
+	}
+
 	// API drefs are available at plugin start
 	s.lat_dr, _ = dataAccess.FindDataRef("sim/flightmodel/position/latitude")
 	s.lon_dr, _ = dataAccess.FindDataRef("sim/flightmodel/position/longitude")
@@ -197,6 +218,16 @@ func (s *xplaneService) onPluginStart() {
 	s.myMenuItemIndex2 = menus.AppendMenuItem(s.myMenuId, "Lock Elsa up (ice)", 1, true)
 	s.myMenuItemIndex3 = menus.AppendMenuItem(s.myMenuId, "Enable Historical Snow", 2, true)
 	s.myMenuItemIndex4 = menus.AppendMenuItem(s.myMenuId, "Enable Snow Depth Auto Update", 3, true)
+
+	maxSnowMenuItem := menus.AppendMenuItem(s.myMenuId, "Max snow depth", 0, false)
+	s.maxSnowMenuId = menus.CreateMenu("Max snow depth", s.myMenuId, maxSnowMenuItem, s.maxSnowMenuHandler, nil)
+
+	for i, txt := range maxSnowMenuTxt {
+		s.maxSnowMenuItem[i] = menus.AppendMenuItem(s.maxSnowMenuId, txt, i, true)
+	}
+
+	s.maxSnowRadioButtons(s.maxSnowSelected)
+
 	if s.override {
 		menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex, menus.Menu_Checked)
 	} else {
@@ -309,7 +340,7 @@ func (s *xplaneService) flightLoop(
 		if s.snowDepth < 0.001 && !s.override {
 			return -1
 		}
-
+        s.Logger.Infof("sd %0.2f", s.snowDepth)
 		s.snowNow, s.rwySnowCover, s.iceNow = s.p2x.SnowDepthToXplaneSnowNow(s.snowDepth)
 	}
 
@@ -341,6 +372,40 @@ func (s *xplaneService) messageHandler(message plugins.Message) {
 		s.Logger.Infof("Plane/Scenery loaded: %v", message.MessageId)
 		s.loopCnt = 0 // reset loop counter so we download the new grib files
 	}
+}
+
+func (s *xplaneService) writeConfig() {
+	// write to config
+	err := godotenv.Write(map[string]string{
+		"OVERRIDE":   strconv.FormatBool(s.override),
+		"RWY_ICE":    strconv.FormatBool(s.rwyIce),
+		"HISTORICAL": strconv.FormatBool(s.historical),
+		"AUTOUPDATE": strconv.FormatBool(s.autoUpdate),
+        "MAX_SNOW_SELECTED": strconv.Itoa(s.maxSnowSelected),
+	}, s.configFilePath)
+	if err != nil {
+		s.Logger.Errorf("Error writing to config: %v", err)
+	}
+}
+
+
+func (s *xplaneService) maxSnowRadioButtons(selected int) {
+	// radio buttons
+	for i, item := range s.maxSnowMenuItem {
+		if i != selected {
+			menus.CheckMenuItem(s.maxSnowMenuId, item, menus.Menu_Unchecked)
+		}
+	}
+
+	menus.CheckMenuItem(s.maxSnowMenuId, s.maxSnowMenuItem[selected], menus.Menu_Checked)
+	s.maxSnowSelected = selected
+	MaxSnowDepth = maxSnowMenuVal[selected]
+
+	s.writeConfig()
+}
+
+func (s *xplaneService) maxSnowMenuHandler(menuRef interface{}, itemRef interface{}) {
+	s.maxSnowRadioButtons(itemRef.(int))
 }
 
 func (s *xplaneService) menuHandler(menuRef interface{}, itemRef interface{}) {
@@ -386,15 +451,5 @@ func (s *xplaneService) menuHandler(menuRef interface{}, itemRef interface{}) {
 		s.Logger.Infof("NOAA Auto update: %v", s.autoUpdate)
 	}
 
-	// write to config
-	err := godotenv.Write(map[string]string{
-		"OVERRIDE":   strconv.FormatBool(s.override),
-		"RWY_ICE":    strconv.FormatBool(s.rwyIce),
-		"HISTORICAL": strconv.FormatBool(s.historical),
-		"AUTOUPDATE": strconv.FormatBool(s.autoUpdate),
-	}, s.configFilePath)
-	if err != nil {
-		s.Logger.Errorf("Error writing to config: %v", err)
-	}
-
+    s.writeConfig()
 }
