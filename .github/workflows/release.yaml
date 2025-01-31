@@ -117,7 +117,7 @@ jobs:
           ls -lR ./build/XA-snow
 
       - run: |
-          rm -f ${{ github.workspace }}/build/XA-snow/mac_arm.xpl ${{ github.workspace }}/build/XA-snow/mac_amd.xpl
+          rm -f ${{ github.workspace }}/build/XA-snow/mac_arm.xpl ${{ github.workspace }}/build/XA-snow/mac_x86.xpl
           cp -r bin ${{ github.workspace }}/build/XA-snow/
           TAG=${GITHUB_REF##*/}
           cp ${{ github.workspace }}/skunkcrafts_updater.cfg ${{ github.workspace }}/build/XA-snow/
