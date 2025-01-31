@@ -8,6 +8,7 @@ mac:
 	GOARCH=arm64 \
 	CGO_ENABLED=1 \
 	CGO_CFLAGS="-DAPL=1 -DIBM=0 -DLIN=0 -O2 -g" \
+	CGO_CXXFLAGS="-std=c++20 -DAPL=1 -O2 -I${CURDIR}/SDK/CHeaders/XPLM" \
 	CGO_LDFLAGS="-F/System/Library/Frameworks/ -F${CURDIR}/Libraries/Mac -framework XPLM" \
 	go build -buildmode c-shared -o build/XA-snow/mac_arm.xpl \
 		-ldflags="-X github.com/xairline/xa-snow/services.VERSION=${VERSION}"  main.go
@@ -15,6 +16,7 @@ mac:
 	GOARCH=amd64 \
 	CGO_ENABLED=1 \
 	CGO_CFLAGS="-DAPL=1 -DIBM=0 -DLIN=0 -O2 -g" \
+	CGO_CXXFLAGS="-std=c++20 -DAPL=1 -O2 -I${CURDIR}/SDK/CHeaders/XPLM" \
 	CGO_LDFLAGS="-F/System/Library/Frameworks/ -F${CURDIR}/Libraries/Mac -framework XPLM" \
 	go build -buildmode c-shared -o build/XA-snow/mac_amd.xpl \
 		-ldflags="-X github.com/xairline/xa-snow/services.VERSION=${VERSION}" main.go
@@ -29,6 +31,7 @@ dev:
 		-ldflags="-X github.com/xairline/xa-snow/services.VERSION=${VERSION}" main.go
 win:
 	CGO_CFLAGS="-DIBM=1 -static -O2 -g" \
+	CGO_CXXFLAGS="-std=c++20 -DIBM=1 -O2 -I${CURDIR}/SDK/CHeaders/XPLM" \
 	CGO_LDFLAGS="-L${CURDIR}/Libraries/Win -lXPLM_64 -static-libgcc -static-libstdc++ -Wl,--exclude-libs,ALL" \
 	GOOS=windows \
 	GOARCH=amd64 \
@@ -43,7 +46,8 @@ lin:
 	CGO_ENABLED=1 \
 	CC=/usr/local/bin/x86_64-linux-musl-cc \
 	CGO_CFLAGS="-DLIN=1 -O2 -g" \
-	CGO_LDFLAGS="-shared -rdynamic -nodefaultlibs -undefined_warning" \
+	CGO_CXXFLAGS="-std=c++20 -DLIN=1 -O2 -I${CURDIR}/SDK/CHeaders/XPLM" \
+	CGO_LDFLAGS="-shared -rdynamic -nodefaultlibs" \
 	go build -buildmode c-shared -o build/XA-snow/lin.xpl  \
 		-ldflags="-X github.com/xairline/xa-snow/services.VERSION=${VERSION}" main.go
 
@@ -53,6 +57,7 @@ mac-test:
 	GOARCH=arm64 \
 	CGO_ENABLED=1 \
 	CGO_CFLAGS="-DAPL=1 -DIBM=0 -DLIN=0 -O2 -g" \
+	CGO_CXXFLAGS="-std=c++20 -DAPL=1 -O2 -I${CURDIR}/SDK/CHeaders/XPLM" \
 	CGO_LDFLAGS="-F/System/Library/Frameworks/ -F${CURDIR}/Libraries/Mac -framework XPLM" \
 	go test -race -coverprofile=coverage.txt -covermode=atomic ./... -v
 
