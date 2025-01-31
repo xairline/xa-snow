@@ -78,6 +78,13 @@ jobs:
           bash ./build_lin.sh
           ls -lR ./build
 
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-linux
+          path: |
+            build/XA-snow/lin.xpl
+
   build:
     # The type of runner that the job will run on
     runs-on: macos-13
