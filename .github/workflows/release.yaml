@@ -1,5 +1,8 @@
 name: Release
 
+# if the tag contains -test- the build is pushed into the build-test branch
+# so skunkcrafts does not see it
+
 # Controls when the workflow will run
 on:
   push:
@@ -11,34 +14,117 @@ on:
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
-  build:
-    # The type of runner that the job will run on
-    runs-on: macos-13
+  build-windows:
+    runs-on: windows-latest
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v2
+      - uses: msys2/setup-msys2@v2
         with:
-          fetch-depth: 0
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-go
 
+      - uses: actions/checkout@v3
 
-      - uses: actions/setup-go@v2
+      - name: Build Windows binaries
+        shell: msys2 {0}
+        run: |
+            export VERSION=${GITHUB_REF##*/}
+            sh ./build_win_msys2.sh
+            ls -lR ./build
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-windows
+          path: |
+            build/XA-snow/win.xpl
+
+  build-linux:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-go@v5
         with:
           go-version: '1.21.5' # The Go version to download (if necessary) and use.
-      - run: brew install FiloSottile/musl-cross/musl-cross
-      - run: brew install mingw-w64
-      - uses: actions/cache@v2
+
+      - uses: actions/cache@v4
         with:
           path: ~/go/pkg/mod
           key: go-mod-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             go-mod-
-      - run: |
+
+      # - name: Install golang
+        # shell: bash
+        # run: |
+          # sudo apt-get update
+          # sudo apt-get -y install golang-go
+
+      - name: Build Linux binaries
+        shell: bash
+        run: |
+          set -x
+          # ubuntu seems to have a different versioning scheme for go and
+          # the existing go.mod may lead to an error
+          rm go.mod
+          go mod init github.com/xairline/xa-snow
           go mod tidy
-          VERSION=${GITHUB_REF##*/} make all -j 3
-          rm -f ${{ github.workspace }}/build/XA-snow/mac_arm.xpl ${{ github.workspace }}/build/XA-snow/mac_amd.xpl
+          export VERSION=${GITHUB_REF##*/}
+          bash ./build_lin.sh
+          ls -lR ./build
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-linux
+          path: |
+            build/XA-snow/lin.xpl
+
+  build:
+    # The type of runner that the job will run on
+    runs-on: macos-13
+    needs: [build-windows, build-linux]
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.21.5' # The Go version to download (if necessary) and use.
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: go-mod-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            go-mod-
+
+      - run: |
+          set -x
+          go mod tidy
+          export VERSION=${GITHUB_REF##*/}
+          sh ./build_mac.sh
+
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./download
+
+      - run: |
+          cp ./download/*/*.xpl ./build/XA-snow/.
+          ls -lR ./build/XA-snow
+
+      - run: |
+          rm -f ${{ github.workspace }}/build/XA-snow/mac_arm.xpl ${{ github.workspace }}/build/XA-snow/mac_x86.xpl
           cp -r bin ${{ github.workspace }}/build/XA-snow/
           TAG=${GITHUB_REF##*/}
           cp ${{ github.workspace }}/skunkcrafts_updater.cfg ${{ github.workspace }}/build/XA-snow/
@@ -52,7 +138,7 @@ jobs:
           cd ${{ github.workspace }}/build/ && zip -r xa-snow.zip XA-snow && cd $root
       - run: |
           cp -r ${{ github.workspace }}/build/XA-snow/ release/
-          
+
           # create crc32 checksum for all values and write to skunkcrafts_updater_whitelist.txt
           # format is <filename>|<crc32 checksum>
           # include subdirectories
@@ -66,14 +152,18 @@ jobs:
             echo "$modified_file|$checksum_decimal" >> release/skunkcrafts_updater_whitelist.txt
           done
           touch release/skunkcrafts_updater_blacklist.txt
-          
+
           TAG=${GITHUB_REF##*/}
-          TARGET_BRANCH="release"
-          # if TAG contains -
-          if [[ $TAG == *"-"* ]]; then
+          if [[ $TAG == *"-test-"* ]]     # if TAG contains -test-
+          then
+              echo "This is a just a build test"
+              TARGET_BRANCH="build-test"
+          elif [[ $TAG == *"-"* ]]        # if TAG contains -
+          then
               echo "This is a beta release"
               TARGET_BRANCH="beta"
           fi
+
           git checkout -b ${TARGET_BRANCH}
           git add .
           git commit -m "new ${TARGET_BRANCH} - ${TAG}"
