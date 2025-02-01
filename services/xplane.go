@@ -106,6 +106,8 @@ func NewXplaneService(
 		xplaneSvcLock.Lock()
 		defer xplaneSvcLock.Unlock()
 
+		InitXaSnowC()	// init the C environment
+
 		systemPath := utilities.GetSystemPath()
 		pluginPath := filepath.Join(systemPath, "Resources", "plugins", "XA-snow")
 		_, cancelFunc := context.WithCancel(context.Background())
@@ -310,6 +312,8 @@ func (s *xplaneService) flightLoop(
 			return -1
 		}
 
+		//la_sd := LegacyAirportSnowDepth(s.snowDepth)
+		//s.Logger.Infof("LegacyAirportSnowDepth: in %0.2f, out: %0.2f", s.snowDepth, la_sd)
 		s.snowNow, s.rwySnowCover, s.iceNow = s.p2x.SnowDepthToXplaneSnowNow(s.snowDepth)
 	}
 
