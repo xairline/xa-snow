@@ -19,6 +19,7 @@
 //    USA
 //
 
+#include <cassert>
 #include <fstream>
 #include "airport.h"
 #include "xa-snow_c-impl.h"
@@ -136,6 +137,100 @@ ParseAptDat(const std::string& fn, Airport& arpt)
     return true;
 }
 
+struct Circle {
+	Vec2 c;
+	float r;
+};
+
+// circle from 2 points
+static Circle
+CircleFrom(const Vec2& a, const Vec2& b)
+{
+	return { 0.5f * (a + b), 0.5f * len(a - b)};
+}
+
+
+// circle from 3 points
+static Circle
+CircleFrom(const Vec2& v1, const Vec2& v2, const Vec2& v3)
+{
+	// Check whether a circle around 2 points covers the third one.
+	// It's cheap and covers the case that all 3 are collinear
+	Circle c = CircleFrom(v1, v2);
+	if (len(v3 - c.c) <= c.r)
+		return c;
+
+	c = CircleFrom(v1, v3);
+	if (len(v2 - c.c) <= c.r)
+		return c;
+
+	c = CircleFrom(v2, v3);
+	if (len(v1 - c.c) <= c.r)
+		return c;
+
+	Vec2 v21 = v2 - v1;
+	Vec2 v31 = v3 - v1;
+
+	float lv1 = v1.x * v1.x + v1.y * v1.y;
+	float lv2 = v2.x * v2.x + v2.y * v2.y;
+	float lv3 = v3.x * v3.x + v3.y * v3.y;
+
+	Vec2 d{ 0.5f * (lv2 - lv1), 0.5f * (lv3 - lv1)};
+	float D = v21.x * v31.y - v31.x * v21.y;
+	Vec2 cc{(d.x * v31.y - d.y * v21.y) / D,
+			(v21.x * d.y - v31.x * d.x) / D};
+	return {cc, len(v1 - cc)};
+}
+
+static Circle
+min_circle_trivial(std::vector<Vec2>& P)
+{
+	assert(P.size() <= 3);
+	if (P.empty())
+		return { { 0, 0 }, 0 };
+
+	if (P.size() == 1)
+		return { P[0], 0 };
+
+	if (P.size() == 2)
+		return CircleFrom(P[0], P[1]);
+
+	return CircleFrom(P[0], P[1], P[2]);
+}
+
+// Welzl's algorithm for the MEC
+//
+// P = set of points
+// R = set of boundary points
+// n = # of points in P
+static Circle
+Welzl(std::vector<Vec2>& P, std::vector<Vec2> R, int n)
+{
+	// Base case when all points processed or |R| = 3
+	if (n == 0 || R.size() == 3) {
+		return min_circle_trivial(R);
+	}
+
+	// Pick a random point randomly
+	int idx = rand() % n;
+	Vec2 p = P[idx];
+
+	// Put the picked point at the end of P
+	// since it's more efficient than
+	// deleting from the middle of the vector
+	std::swap(P[idx], P[n - 1]);
+
+	Circle d = Welzl(P, R, n - 1);
+	if (len(d.c - p) <= d.r)
+		return d;
+
+	// Otherwise, must be on the boundary of the MEC
+	R.push_back(p);
+
+	// Return the MEC for P - {p} and R U {p}
+	return Welzl(P, R, n - 1);
+}
+
 bool
 CollectAirports(const std::string& xp_dir)
 {
@@ -159,10 +254,19 @@ CollectAirports(const std::string& xp_dir)
 
 	for (auto & arpt : airports) {
 		log_msg("%s", arpt->name.c_str());
+		std::vector<Vec2> rwy_ends;
+
+		LLPos base = arpt->runways[0].end1;	// pick arbitrary base for circle computation
 		for (auto & rw : arpt->runways) {
 			log_msg("  rw: %-3s, end1: (%0.4f, %0.4f), end2: (%0.4f, %0.4f)",
 				    rw.name.c_str(), rw.end1.lat, rw.end1.lon, rw.end2.lat, rw.end2.lon);
+			rwy_ends.push_back(rw.end1 - base);
+			rwy_ends.push_back(rw.end2 - base);
 		}
+
+		Circle c = Welzl(rwy_ends, {}, rwy_ends.size());
+		LLPos center = base + c.c;
+		log_msg("Center: (%0.4f, %0.4f), r = %0.1f", center.lat, center.lon, c.r);
 	}
 
 	airports.shrink_to_fit();
