@@ -31,6 +31,9 @@ std::string xp_dir;
 XPLMDataRef plane_lat_dr, plane_lon_dr, plane_elevation_dr, plane_true_psi_dr,
 	plane_y_agl_dr;
 
+XPLMProbeInfo_t probeinfo;
+XPLMProbeRef probe_ref;
+
 extern "C" void
 InitXaSnowC()
 {
@@ -48,16 +51,10 @@ InitXaSnowC()
 		XPLMGetSystemPath(buffer);
 		xp_dir = std::string(buffer);
 
+        probeinfo.structSize = sizeof(XPLMProbeInfo_t);
+        probe_ref = XPLMCreateProbe(xplm_ProbeY);
+
 		CollectAirports(xp_dir);
 		log_msg("InitXaSnowC done, xp_dir: '%s'", xp_dir.c_str());
 	}
-}
-
-extern "C" float
-LegacyAirportSnowDepth(float snow_depth)		// -> adjusted snow depth
-{
-	// nothing for now
-	float lat = XPLMGetDataf(plane_lat_dr);
-	float lon = XPLMGetDataf(plane_lon_dr);
-	return snow_depth;
 }

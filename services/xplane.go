@@ -312,9 +312,9 @@ func (s *xplaneService) flightLoop(
 			return -1
 		}
 
-		//la_sd := LegacyAirportSnowDepth(s.snowDepth)
+		la_sd := LegacyAirportSnowDepth(s.snowDepth)
 		//s.Logger.Infof("LegacyAirportSnowDepth: in %0.2f, out: %0.2f", s.snowDepth, la_sd)
-		s.snowNow, s.rwySnowCover, s.iceNow = s.p2x.SnowDepthToXplaneSnowNow(s.snowDepth)
+		s.snowNow, s.rwySnowCover, s.iceNow = s.p2x.SnowDepthToXplaneSnowNow(la_sd)
 	}
 
 	// If we have no accumulated snow leave the datarefs alone and let X-Plane do its weather effects

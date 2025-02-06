@@ -21,8 +21,8 @@
 
 #include <cassert>
 #include <fstream>
+
 #include "airport.h"
-#include "xa-snow_c-impl.h"
 
 std::vector<std::unique_ptr<Airport>> airports;
 
@@ -234,43 +234,45 @@ Welzl(std::vector<Vec2>& P, std::vector<Vec2> R, int n)
 bool
 CollectAirports(const std::string& xp_dir)
 {
-	SceneryPacks scp(xp_dir);
-	if (scp.sc_paths.size() == 0) {
-		log_msg("Can't collect scenery_packs.ini");
-		return false;
-	}
+    SceneryPacks scp(xp_dir);
+    if (scp.sc_paths.size() == 0) {
+        log_msg("Can't collect scenery_packs.ini");
+        return false;
+    }
 
-	airports.reserve(50);
+    airports.reserve(50);
 
 	for (auto & path : scp.sc_paths) {
-		airports.emplace_back(std::make_unique<Airport>());
-		Airport &arpt = *airports.back();
-		ParseAptDat(path + "Earth nav data/apt.dat", arpt);
-		if (arpt.runways.size() == 0)
-			airports.pop_back();
-		else
-			arpt.runways.shrink_to_fit();
+        airports.emplace_back(std::make_unique<Airport>());
+        Airport &arpt = *airports.back();
+        ParseAptDat(path + "Earth nav data/apt.dat", arpt);
+        if (arpt.runways.size() == 0)
+            airports.pop_back();
+        else
+            arpt.runways.shrink_to_fit();
 	}
 
-	for (auto & arpt : airports) {
-		log_msg("%s", arpt->name.c_str());
-		std::vector<Vec2> rwy_ends;
+    for (auto & arpt : airports) {
+        log_msg("%s", arpt->name.c_str());
+        std::vector<Vec2> rwy_ends;
 
-		LLPos base = arpt->runways[0].end1;	// pick arbitrary base for circle computation
-		for (auto & rw : arpt->runways) {
-			log_msg("  rw: %-3s, end1: (%0.4f, %0.4f), end2: (%0.4f, %0.4f)",
-				    rw.name.c_str(), rw.end1.lat, rw.end1.lon, rw.end2.lat, rw.end2.lon);
-			rwy_ends.push_back(rw.end1 - base);
-			rwy_ends.push_back(rw.end2 - base);
-		}
+        LLPos base = arpt->runways[0].end1;	// pick arbitrary base for circle computation
+        for (auto & rw : arpt->runways) {
+            log_msg("  rw: %-3s, end1: (%0.4f, %0.4f), end2: (%0.4f, %0.4f)",
+                    rw.name.c_str(), rw.end1.lat, rw.end1.lon, rw.end2.lat, rw.end2.lon);
+            rwy_ends.push_back(rw.end1 - base);
+            rwy_ends.push_back(rw.end2 - base);
+        }
 
-		Circle c = Welzl(rwy_ends, {}, rwy_ends.size());
-		LLPos center = base + c.c;
-		log_msg("Center: (%0.4f, %0.4f), r = %0.1f", center.lat, center.lon, c.r);
-	}
+        Circle c = Welzl(rwy_ends, {}, rwy_ends.size());
+        arpt->mec_center = base + c.c;
+        arpt->mec_radius = c.r;
+        log_msg("Center: (%0.4f, %0.4f), r = %0.1f",
+                arpt->mec_center.lat, arpt->mec_center.lon, arpt->mec_radius);
+    }
 
-	airports.shrink_to_fit();
-	return true;
+    airports.shrink_to_fit();
+    return true;
 }
 
 #ifdef TEST_AIRPORTS

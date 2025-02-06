@@ -114,6 +114,10 @@ struct Airport {
 	std::string name;
 	float elevation{kNoElevation};
 	std::vector<Runway> runways;
+
+    // MEC around runways
+    LLPos mec_center;
+    float mec_radius;
 };
 
 extern std::vector<std::unique_ptr<Airport>> airports;
