@@ -63,7 +63,7 @@ LegacyAirportSnowDepth(float snow_depth)		// -> adjusted snow depth
             float ref_dist = dist + 10.0f * dh;                          // is weighted higher
             float a = (ref_dist - arpt->mec_radius) / (kArptLimit - arpt->mec_radius);
             a = clampf(a, 0.0f, 1.0f);
-            snow_depth = kArptSnow + a * (snow_depth - kArptSnow);
+            snow_depth = kArptSnow + a * (std::min(snow_depth, 0.25f) - kArptSnow);
 
             log_msg("haa: %.0f, ref_haa: %0.f, dist to '%s', %.0f m, snow_depth in: %0.2f, out: %0.2f",
                     haa, ref_haa, arpt->name.c_str(), dist, snow_depth_in, snow_depth);
