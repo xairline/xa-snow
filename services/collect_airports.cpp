@@ -19,6 +19,7 @@
 //    USA
 //
 
+#include <cstring>
 #include <fstream>
 
 #include "airport.h"
