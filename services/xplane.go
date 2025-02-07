@@ -23,6 +23,9 @@ import (
 	"time"
 )
 
+// #include "xa-snow-cgo.h"
+import "C"
+
 var VERSION = "development"
 
 type XplaneService interface {
@@ -107,7 +110,7 @@ func NewXplaneService(
 		xplaneSvcLock.Lock()
 		defer xplaneSvcLock.Unlock()
 
-		InitXaSnowC()	// init the C environment
+		C.InitXaSnowC()	// init the C environment
 
 		systemPath := utilities.GetSystemPath()
 		pluginPath := filepath.Join(systemPath, "Resources", "plugins", "XA-snow")
@@ -318,7 +321,7 @@ func (s *xplaneService) flightLoop(
 		lon := dataAccess.GetFloatData(s.lon_dr)
 		snowDepth_n := s.GribService.GetSnowDepth(lat, lon)
         if s.limitSnow {
-            snowDepth_n = LegacyAirportSnowDepth(snowDepth_n)
+            snowDepth_n = float32(C.LegacyAirportSnowDepth(C.float(snowDepth_n)))
         }
 
 		// some exponential smoothing

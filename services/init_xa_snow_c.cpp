@@ -24,7 +24,7 @@
 
 #include "XPLMUtilities.h"
 
-#include "xa-snow_c-impl.h"
+#include "xa-snow.h"
 #include "airport.h"
 
 std::string xp_dir;

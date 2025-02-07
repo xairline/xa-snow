@@ -27,7 +27,7 @@
 #include <memory>
 #include <vector>
 
-#include "xa-snow_c-impl.h"
+#include "xa-snow.h"
 
 // return relative angle in (-180, 180]
 static inline
