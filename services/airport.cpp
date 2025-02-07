@@ -58,9 +58,11 @@ LegacyAirportSnowDepth(float snow_depth)		// -> adjusted snow depth
             }
 
             float haa = XPLMGetDataf(plane_elevation_dr) - arpt->elevation;
-            float ref_haa = dist * 0.087f;     // a 5° slope into the center
-            float dh = std::max(0.0f, haa - ref_haa);   // delta above ref slope
-            float ref_dist = dist + 10.0f * dh;                          // is weighted higher
+            float ref_haa = dist * 0.087f;              // a 5° slope into the center
+            float dh = std::max(0.0f, haa - ref_haa);   // a delta above ref slope
+            float ref_dist = dist + 10.0f * dh;         // is weighted higher
+
+            // now interpolate down to kArptSnow at the MEC
             float a = (ref_dist - arpt->mec_radius) / (kArptLimit - arpt->mec_radius);
             a = clampf(a, 0.0f, 1.0f);
             snow_depth = kArptSnow + a * (std::min(snow_depth, 0.25f) - kArptSnow);

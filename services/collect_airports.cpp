@@ -19,7 +19,6 @@
 //    USA
 //
 
-#include <cassert>
 #include <fstream>
 
 #include "airport.h"
@@ -185,7 +184,6 @@ CircleFrom(const Vec2& v1, const Vec2& v2, const Vec2& v3)
 static Circle
 min_circle_trivial(std::vector<Vec2>& P)
 {
-	assert(P.size() <= 3);
 	if (P.empty())
 		return { { 0, 0 }, 0 };
 
@@ -264,7 +262,12 @@ CollectAirports(const std::string& xp_dir)
             rwy_ends.push_back(rw.end2 - base);
         }
 
-        Circle c = Welzl(rwy_ends, {}, rwy_ends.size());
+        Circle c;
+        if (rwy_ends.size() == 2)
+            c = CircleFrom(rwy_ends[0], rwy_ends[1]);
+        else
+            c = Welzl(rwy_ends, {}, rwy_ends.size());
+
         arpt->mec_center = base + c.c;
         arpt->mec_radius = c.r;
         log_msg("Center: (%0.4f, %0.4f), r = %0.1f",
