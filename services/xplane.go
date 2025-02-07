@@ -23,6 +23,9 @@ import (
 	"time"
 )
 
+// #include "xa-snow-cgo.h"
+import "C"
+
 var VERSION = "development"
 
 type XplaneService interface {
@@ -52,12 +55,13 @@ type xplaneService struct {
 	rwyIce     bool
 	historical bool
 	autoUpdate bool
+    limitSnow  bool
 
 	loopCnt                                  uint32
 	snowDepth, snowNow, iceNow, rwySnowCover float32
 
 	myMenuId                                                              menus.MenuID
-	myMenuItemIndex, myMenuItemIndex2, myMenuItemIndex3, myMenuItemIndex4 int
+	myMenuItemIndex, myMenuItemIndex2, myMenuItemIndex3, myMenuItemIndex4, myMenuItemIndex5 int
 
 	configFilePath string
 
@@ -105,6 +109,8 @@ func NewXplaneService(
 		logger.Info("Xplane SVC: initializing")
 		xplaneSvcLock.Lock()
 		defer xplaneSvcLock.Unlock()
+
+		C.InitXaSnowC()	// init the C environment
 
 		systemPath := utilities.GetSystemPath()
 		pluginPath := filepath.Join(systemPath, "Resources", "plugins", "XA-snow")
@@ -177,6 +183,14 @@ func (s *xplaneService) onPluginStart() {
 		s.autoUpdate = false
 	}
 
+	if os.Getenv("AUTOUPDATE") == "true" {
+		s.autoUpdate = true
+	} else {
+		s.autoUpdate = false
+	}
+
+	s.limitSnow = (os.Getenv("LIMIT_SNOW") == "true")
+
 	// API drefs are available at plugin start
 	s.lat_dr, _ = dataAccess.FindDataRef("sim/flightmodel/position/latitude")
 	s.lon_dr, _ = dataAccess.FindDataRef("sim/flightmodel/position/longitude")
@@ -197,6 +211,8 @@ func (s *xplaneService) onPluginStart() {
 	s.myMenuItemIndex2 = menus.AppendMenuItem(s.myMenuId, "Lock Elsa up (ice)", 1, true)
 	s.myMenuItemIndex3 = menus.AppendMenuItem(s.myMenuId, "Enable Historical Snow", 2, true)
 	s.myMenuItemIndex4 = menus.AppendMenuItem(s.myMenuId, "Enable Snow Depth Auto Update", 3, true)
+    s.myMenuItemIndex5 = menus.AppendMenuItem(s.myMenuId, "Limit snow for legacy airports", 4, true)
+
 	if s.override {
 		menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex, menus.Menu_Checked)
 	} else {
@@ -217,6 +233,10 @@ func (s *xplaneService) onPluginStart() {
 	} else {
 		menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex4, menus.Menu_Unchecked)
 	}
+
+    m := menus.Menu_Unchecked
+	if s.limitSnow { m = menus.Menu_Checked }
+    menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex5, m)
 
 	// set internal vars to known "no snow" state
 	s.snowNow, s.rwySnowCover, s.iceNow = s.p2x.SnowDepthToXplaneSnowNow(0)
@@ -300,6 +320,9 @@ func (s *xplaneService) flightLoop(
 		lat := dataAccess.GetFloatData(s.lat_dr)
 		lon := dataAccess.GetFloatData(s.lon_dr)
 		snowDepth_n := s.GribService.GetSnowDepth(lat, lon)
+        if s.limitSnow {
+            snowDepth_n = float32(C.LegacyAirportSnowDepth(C.float(snowDepth_n)))
+        }
 
 		// some exponential smoothing
 		const alpha = float32(0.7)
@@ -342,6 +365,21 @@ func (s *xplaneService) messageHandler(message plugins.Message) {
 		s.loopCnt = 0 // reset loop counter so we download the new grib files
 	}
 }
+
+func (s *xplaneService) writeConfig() {
+	// write to config
+	err := godotenv.Write(map[string]string{
+		"OVERRIDE":   strconv.FormatBool(s.override),
+		"RWY_ICE":    strconv.FormatBool(s.rwyIce),
+		"HISTORICAL": strconv.FormatBool(s.historical),
+		"AUTOUPDATE": strconv.FormatBool(s.autoUpdate),
+        "LIMIT_SNOW": strconv.FormatBool(s.limitSnow),
+	}, s.configFilePath)
+	if err != nil {
+		s.Logger.Errorf("Error writing to config: %v", err)
+	}
+}
+
 
 func (s *xplaneService) menuHandler(menuRef interface{}, itemRef interface{}) {
 	if itemRef.(int) == 0 {
@@ -386,15 +424,16 @@ func (s *xplaneService) menuHandler(menuRef interface{}, itemRef interface{}) {
 		s.Logger.Infof("NOAA Auto update: %v", s.autoUpdate)
 	}
 
-	// write to config
-	err := godotenv.Write(map[string]string{
-		"OVERRIDE":   strconv.FormatBool(s.override),
-		"RWY_ICE":    strconv.FormatBool(s.rwyIce),
-		"HISTORICAL": strconv.FormatBool(s.historical),
-		"AUTOUPDATE": strconv.FormatBool(s.autoUpdate),
-	}, s.configFilePath)
-	if err != nil {
-		s.Logger.Errorf("Error writing to config: %v", err)
+	if itemRef.(int) == 4 {
+		s.limitSnow = !s.limitSnow
+		if s.limitSnow {
+			menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex5, menus.Menu_Checked)
+		} else {
+			menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex5, menus.Menu_Unchecked)
+
+		}
+		s.Logger.Infof("LIMIT_SNOW: %v", s.limitSnow)
 	}
 
+    s.writeConfig()
 }
