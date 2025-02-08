@@ -108,8 +108,14 @@ jobs:
           restore-keys: |
             go-mod-
 
+      - uses: melusina-org/setup-macports@v1
+        with:
+          macports-version: 2.7.1
+
       - run: |
           set -x
+          port selfupdate
+          port install libpng +universal
           go mod tidy
           export VERSION=${GITHUB_REF##*/}
           sh ./build_mac.sh
