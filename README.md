@@ -16,3 +16,9 @@ Download link for skunkcrafts updater:
 https://forums.x-plane.org/index.php?/forums/topic/292710-skunkcrafts-updater-standalone-client/
 
 Support Discord: https://discord.gg/dN9gvFdfAZ
+
+### Credits
+zodiac1214 for creating the plugin https://github.com/zodiac1214 \
+randy408 for providing libspng https://github.com/randy408/libspng, see LICENSE-libspng\
+richgel999 for providing miniz https://github.com/richgel999/miniz, see LICENSE-miniz
+
