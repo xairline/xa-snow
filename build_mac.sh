@@ -6,9 +6,9 @@ then
     this_dir=$(pwd)
 fi
 
-export CGO_CFLAGS="-DAPL=1 -O2"
-export CGO_CXXFLAGS="-std=c++20 -DAPL=1 -Wall -O2 -I${this_dir}/SDK/CHeaders/XPLM"
-export CGO_LDFLAGS="-F/System/Library/Frameworks/ -F${this_dir}/SDK/Libraries/Mac -framework XPLM -L/opt/local/lib -lpng -lz"
+export CGO_CFLAGS="-DAPL=1 -DSPNG_STATIC -DSPNG_USE_MINIZ -O2"
+export CGO_CXXFLAGS="-std=c++20 -DAPL=1 -DSPNG_STATIC -DSPNG_USE_MINIZ -Wall -O2 -I${this_dir}/SDK/CHeaders/XPLM"
+export CGO_LDFLAGS="-F/System/Library/Frameworks/ -F${this_dir}/SDK/Libraries/Mac -framework XPLM"
 export GOOS=darwin
 export GOARCH=arm64
 export CGO_ENABLED=1

@@ -23,7 +23,7 @@
 #include <memory>
 #include <cmath>
 #include <string>
-#include <png.h> // For image processing
+#include <spng.h> // For image processing
 
 #include "xa-snow.h"
 
@@ -110,48 +110,57 @@ CoastMap::load(const std::string& dir)
         return false;
     }
 
-    png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-    if(png == nullptr)
+    spng_ctx* ctx = spng_ctx_new(0);
+    if(ctx == nullptr)
         return false;
 
-    png_infop info = png_create_info_struct(png);
-    if(info == nullptr) {
-        png_destroy_read_struct(&png, nullptr, nullptr);
+    // Ignore and don't calculate chunk CRC's
+    spng_set_crc_action(ctx, SPNG_CRC_USE, SPNG_CRC_USE);
+
+    // Set memory usage limits for storing standard and unknown chunks,
+    // this is important when reading untrusted files!
+    size_t limit = 1024 * 1024 * 10;
+    spng_set_chunk_limits(ctx, limit, limit);
+
+    // Set source file
+    spng_set_png_file(ctx, fp);
+
+    struct spng_ihdr ihdr;
+    int ret = spng_get_ihdr(ctx, &ihdr);
+    if (ret) {
+        log_msg("spng_get_ihdr() error: %s\n", spng_strerror(ret));
+        fclose(fp);
+        spng_ctx_free(ctx);
         return false;
     }
 
-    //if(setjmp(png_jmpbuf(png))) abort();
-
-    png_init_io(png, fp);
-
-    png_read_info(png, info);
-
-    int width = png_get_image_width(png, info);
-    int height = png_get_image_height(png, info);
-    png_byte color_type = png_get_color_type(png, info);
-    png_byte bit_depth = png_get_bit_depth(png, info);
+    int width = ihdr.width;
+    int height = ihdr.height;
+    int color_type = ihdr.color_type;
+    int bit_depth = ihdr.bit_depth;
 
     log_msg("w: %d, h: %d, color_type: %d, bit_depth: %d", width, height, color_type, bit_depth);
 
     if (width != n_wm || height != m_wm || bit_depth != 8) {
         log_msg("Invalid map");
+        fclose(fp);
+        spng_ctx_free(ctx);
         return false;
     }
 
     log_msg("Decoded: '%s', %s", filename.c_str(), "PNG");
 
-    // note that an automatic variable for img is optimized away
-    // like png_byte img[m_wm * n_wm];
-    auto img = std::make_unique<png_byte[]>(m_wm * n_wm);
+    // ~ 20 MB, so no stack allocation RGBA = uint32_t
+    auto img = std::make_unique<uint32_t[]>(m_wm * n_wm);
 
-    png_bytep row_pointers[m_wm];
-    for(int y = 0; y < height; y++) {
-        row_pointers[y] = &img[n_wm * y]; //(png_byte*)malloc(png_get_rowbytes(png,info));
-    }
-
-    png_read_image(png, row_pointers);
+    ret = spng_decode_image(ctx, img.get(), sizeof(uint32_t) * m_wm * n_wm, SPNG_FMT_RGBA8, 0);
     fclose(fp);
-    png_destroy_read_struct(&png, &info, nullptr);
+    spng_ctx_free(ctx);
+
+    if (ret) {
+        log_msg("spng_decode_image() error: %s\n", spng_strerror(ret));
+        return false;
+    }
 
     for (int i = 0; i < n_wm; i++) {
         for (int j = 10; j < m_wm - 10; j++) { // stay away from the poles
@@ -171,8 +180,8 @@ CoastMap::load(const std::string& dir)
                 int wrapped_i, wrapped_j;
                 wrap_ij(i, j, wrapped_i, wrapped_j);
 
-                png_byte pixel = (row_pointers[wrapped_j])[wrapped_i];
-                return pixel == 0;
+                uint32_t pixel = img[wrapped_j * n_wm + wrapped_i];
+                return (pixel & 0x00FFFFFF) == 0;   // not the alpha channel
             };
 
             auto is_land = [&](int i, int j) {
