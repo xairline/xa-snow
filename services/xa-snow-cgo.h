@@ -42,8 +42,13 @@ struct R_IsCoast_ {
     bool yes_no;
     int dir_x, dir_y, grid_angle;
 } R_IsCoast;
-
 R_IsCoast CMIsCoast(int i, int j);
+
+typedef
+struct R_SnowDepthToXplaneSnowNow_ {
+    float snowNow, snowAreaWidth, iceNow;
+} R_SnowDepthToXplaneSnowNow;
+R_SnowDepthToXplaneSnowNow CSnowDepthToXplaneSnowNow(float depth);
 
 #ifdef __cplusplus
 }

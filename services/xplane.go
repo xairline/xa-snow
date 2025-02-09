@@ -40,7 +40,6 @@ type XplaneService interface {
 type xplaneService struct {
 	Plugin      *extra.XPlanePlugin
 	GribService GribService
-	p2x         Phys2XPlane
 	drefsInited bool
 
 	lat_dr, lon_dr,
@@ -121,7 +120,6 @@ func NewXplaneService(
 				path.Join(systemPath, "Output", "snow"),
 				filepath.Join(pluginPath, "bin"),
 				NewCoastService(logger, pluginPath)),
-			p2x:        NewPhys2XPlane(logger),
 			Logger:     logger,
 			disabled:   false,
 			override:   false,
@@ -239,7 +237,7 @@ func (s *xplaneService) onPluginStart() {
     menus.CheckMenuItem(s.myMenuId, s.myMenuItemIndex5, m)
 
 	// set internal vars to known "no snow" state
-	s.snowNow, s.rwySnowCover, s.iceNow = s.p2x.SnowDepthToXplaneSnowNow(0)
+	s.snowNow, s.rwySnowCover, s.iceNow = SnowDepthToXplaneSnowNow(0)
 }
 
 func (s *xplaneService) onPluginStop() {
@@ -333,7 +331,7 @@ func (s *xplaneService) flightLoop(
 			return -1
 		}
 
-		s.snowNow, s.rwySnowCover, s.iceNow = s.p2x.SnowDepthToXplaneSnowNow(s.snowDepth)
+		s.snowNow, s.rwySnowCover, s.iceNow = SnowDepthToXplaneSnowNow(s.snowDepth)
 	}
 
 	// If we have no accumulated snow leave the datarefs alone and let X-Plane do its weather effects

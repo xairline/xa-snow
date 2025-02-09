@@ -69,3 +69,8 @@ func NewCoastService(logger logger.Logger, dir string) CoastService {
 
     return nil;
 }
+
+func SnowDepthToXplaneSnowNow(depth float32) (float32, float32, float32) {
+    res := C.CSnowDepthToXplaneSnowNow(C.float(depth))
+    return float32(res.snowNow), float32(res.snowAreaWidth), float32(res.iceNow)
+}

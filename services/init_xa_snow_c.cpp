@@ -1,5 +1,5 @@
 //
-//    A contribution to https://github.com/xairline/xa-snow
+//    A contribution to https://github.com/xairline/xa-snow by zodiac1214
 //
 //    Copyright (C) 2025  Holger Teutsch
 //

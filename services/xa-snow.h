@@ -23,6 +23,7 @@
 #define _XA_SNOW_H_
 
 #include <string>
+#include <tuple>
 #include <numbers>
 
 #define XPLM200
@@ -48,5 +49,6 @@ extern std::string xp_dir;
 
 // functions
 extern void log_msg(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
+extern std::tuple<float, float, float> SnowDepthToXplaneSnowNow(float depth); // snowNow, snowAreaWidth, iceNow
 
 #endif
