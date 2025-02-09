@@ -23,6 +23,7 @@
 #include <memory>
 #include <cmath>
 #include <string>
+#include <tuple>
 #include <spng.h> // For image processing
 
 #include "xa-snow.h"
@@ -45,31 +46,34 @@ enum State {
 struct CoastMap {
     uint8_t wmap [n_wm][m_wm];		// encoded as (dir << 2)|sXxx
 
-    void wrap_ij(int i, int j, int &wrapped_i, int& wrapped_j) {
-        if (i >= n_wm) {
-            i -= n_wm;
-        } else if (i < 0) {
-            i += n_wm;
-        }
-
-        if (j >= m_wm) {
-            j = m_wm - 1;
-        } else if (j < 0) {
-            j = 0;
-        }
-
-        wrapped_i =i; wrapped_j = j;
-        return;
-    }
+    void wrap_ij(int i, int j, int &wrapped_i, int& wrapped_j);
 
   public:
     bool load(const std::string& dir);
     bool is_water(int i, int j);
     bool is_land(int i, int j);
-    R_IsCoast is_coast(int i, int j); // -> yes_no, dir_x, dir_y, grid angle
+    std::tuple<bool, int, int, int> is_coast(int i, int j); // -> yes_no, dir_x, dir_y, grid_angle
 };
 
 static CoastMap coast_map;
+
+void
+CoastMap::wrap_ij(int i, int j, int &wrapped_i, int& wrapped_j) {
+    if (i >= n_wm) {
+        i -= n_wm;
+    } else if (i < 0) {
+        i += n_wm;
+    }
+
+    if (j >= m_wm) {
+        j = m_wm - 1;
+    } else if (j < 0) {
+        j = 0;
+    }
+
+    wrapped_i =i; wrapped_j = j;
+    return;
+}
 
 bool
 CoastMap::is_water(int i, int j)
@@ -87,7 +91,7 @@ CoastMap::is_land(int i, int j)
     return (wmap[wrapped_i][wrapped_j] & 0x3) == sLand;
 }
 
-R_IsCoast
+std::tuple<bool, int, int, int>
 CoastMap::is_coast(int i, int j)
 {
     if (j >= m_wm) {
@@ -231,24 +235,12 @@ CoastMap::load(const std::string& dir)
         }
     }
 
-    int n_coast{0}, n_water{0}, n_land{0};
-
-    for (int i = 0; i < n_wm; i++)
-        for (int j = 0; j < m_wm; j++)
-            if (CMIsCoast(i, j).yes_no)
-                n_coast++;
-            else if (coast_map.is_water(i, j))
-                n_water++;
-            else if (coast_map.is_land(i, j))
-                n_land++;
-
-    log_msg("coast: %d, water: %d, land: %d, probe: %d", n_coast, n_water, n_land,
-            n_wm * m_wm - n_coast - n_water - n_land);
-
     return true;
 }
 
-// some glue for golang
+// C++ to C translations that will eventually go away
+#include "xa-snow-cgo.h"
+
 extern "C"
 bool CoastMapInit(const char *dir)
 {
@@ -271,7 +263,9 @@ bool CMIsLand(int i, int j)
 extern "C"
 R_IsCoast CMIsCoast(int i, int j)
 {
-    return coast_map.is_coast(i, j);
+    R_IsCoast r;
+    std::tie(r.yes_no, r.dir_x, r.dir_y, r.grid_angle) = coast_map.is_coast(i, j);
+    return r;
 }
 
 #ifdef TEST_COAST

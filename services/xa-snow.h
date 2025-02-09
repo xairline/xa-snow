@@ -22,6 +22,7 @@
 #ifndef _XA_SNOW_H_
 #define _XA_SNOW_H_
 
+#include <string>
 #include <numbers>
 
 #define XPLM200
@@ -31,8 +32,6 @@
 
 #include "XPLMDataAccess.h"
 #include "XPLMScenery.h"
-
-#include "xa-snow-cgo.h"
 
 static constexpr float kD2R = std::numbers::pi/180.0;
 static constexpr float kLat2m = 111120;                 // 1° lat in m

@@ -32,17 +32,17 @@ extern "C" {
 void InitXaSnowC();
 float LegacyAirportSnowDepth(float snow_depth);		// -> adjusted snow depth
 
-// return type of CoastMap::is_coast aka CMIsCoast
+// some glue for golang
+bool CoastMapInit(const char *dir);
+bool CMIsWater(int i, int j);
+bool CMIsLand(int i, int j);
+
 typedef
 struct R_IsCoast_ {
     bool yes_no;
     int dir_x, dir_y, grid_angle;
 } R_IsCoast;
 
-// some glue for golang
-bool CoastMapInit(const char *dir);
-bool CMIsWater(int i, int j);
-bool CMIsLand(int i, int j);
 R_IsCoast CMIsCoast(int i, int j);
 
 #ifdef __cplusplus
