@@ -20,7 +20,7 @@ func init() {
 	xplaneLogger := logger.NewXplaneLogger()
 	plugins.EnableFeature("XPLM_USE_NATIVE_PATHS", true)
 	logging.MinLevel = logging.Info_Level
-	logging.PluginName = "X Airline Snow - " + services.VERSION
+	logging.PluginName = "xa-snow"
 	// get plugin path
 	systemPath := utilities.GetSystemPath()
 	pluginPath := filepath.Join(systemPath, "Resources", "plugins", "XA-snow")

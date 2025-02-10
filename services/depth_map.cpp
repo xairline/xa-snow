@@ -19,12 +19,9 @@
 //    USA
 //
 
-#include <iostream>
+#include <cstdio>
 #include <fstream>
-#include <sstream>
-#include <vector>
 #include <string>
-#include <stdexcept>
 #include <cmath>
 
 #include "xa-snow.h"
@@ -126,30 +123,23 @@ DepthMap::LoadCsv(const char *csv_name)
     counter++;
 
     while (std::getline(file, line)) {
-        std::istringstream ss(line);
-        std::string token;
-        std::vector<std::string> record;
-
-        while (std::getline(ss, token, ',')) {
-            record.push_back(token);
+        float lat, lon, value;
+        if (3 != sscanf(line.c_str(), "%f,%f,%f", &lon, &lat, &value)) {
+            log_msg("invalid csv line: '%s'", line.c_str());
+            continue;
         }
 
-        if (record.size() < 3) continue;
-
-        float lon = std::stof(record[0]);
-        float lat = std::stof(record[1]);
-        float value = 0;
-
-        if (record[2].find('e') != std::string::npos) {
-            value = 0;
-        } else {
-            value = std::stof(record[2]);
-        }
+        if (value < 0.001f)
+            value = 0.0f;
 
         // Convert longitude and latitude to array indices
         // This example assumes the CSV contains all longitudes and latitudes
         int x = static_cast<int>(lon * 10);         // Adjust these calculations based on your data's range and resolution
         int y = static_cast<int>((lat + 90) * 10);  // Adjust for negative latitudes
+        if (x < 0 || x >= n_iLon || y < 0 || y > n_iLat) {
+            log_msg("invalid csv line: '%s'", line.c_str());
+            continue;
+        }
 
         val[x][y] = value;
         counter++;

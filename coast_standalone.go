@@ -58,7 +58,7 @@ func logSnow(loc string, lat, lon float32) {
 func main() {
 	logger := new(MyLogger)
 	logger.Info("startup")
-	cs := services.NewCoastService(logger, ".")
+	cs := services.NewCoastService(".")
 
 	img := image.NewNRGBA(image.Rect(0,0,3600, 1800))
 

@@ -21,12 +21,9 @@
 
 // C to golang translations that will eventually go away
 
-// The 'old' coast.go interface
-
 package services
 
 import (
-	"github.com/xairline/xa-snow/utils/logger"
     "runtime"
     "unsafe"
 )
@@ -42,7 +39,6 @@ type CoastService interface {
 }
 
 type coastService struct {
-	logger	logger.Logger
 }
 
 func (cs *coastService)IsWater(i, j int) bool {
@@ -58,8 +54,8 @@ func (cs *coastService)IsCoast(i, j int) (bool, int, int, int) {
     return bool(res.yes_no), int(res.dir_x), int(res.dir_y), int(res.grid_angle)
 }
 
-func NewCoastService(logger logger.Logger, dir string) CoastService {
-	cs := &coastService{logger:logger}
+func NewCoastService(dir string) CoastService {
+	cs := &coastService{}
 
     var cdir *C.char = C.CString(dir)
     defer C.free(unsafe.Pointer(cdir))

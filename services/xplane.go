@@ -119,7 +119,7 @@ func NewXplaneService(
 			GribService: NewGribService(logger,
 				path.Join(systemPath, "Output", "snow"),
 				filepath.Join(pluginPath, "bin"),
-				NewCoastService(logger, pluginPath)),
+				NewCoastService(pluginPath)),
 			Logger:     logger,
 			disabled:   false,
 			override:   false,
