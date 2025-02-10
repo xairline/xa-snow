@@ -28,9 +28,6 @@
 
 #include "xa-snow.h"
 
-// water map in 0.1° resolution
-static constexpr int n_wm = 3600;
-static constexpr int m_wm = 1800;
 
 // we use a "grid direction" = 360°/45° in standard math convention
 // 0 -> x, 2 -> y, 4 -> -x, ...
@@ -43,19 +40,7 @@ enum State {
     sCoast
 };
 
-struct CoastMap {
-    uint8_t wmap [n_wm][m_wm];		// encoded as (dir << 2)|sXxx
-
-    void wrap_ij(int i, int j, int &wrapped_i, int& wrapped_j);
-
-  public:
-    bool load(const std::string& dir);
-    bool is_water(int i, int j);
-    bool is_land(int i, int j);
-    std::tuple<bool, int, int, int> is_coast(int i, int j); // -> yes_no, dir_x, dir_y, grid_angle
-};
-
-static CoastMap coast_map;
+CoastMap coast_map;
 
 void
 CoastMap::wrap_ij(int i, int j, int &wrapped_i, int& wrapped_j) {

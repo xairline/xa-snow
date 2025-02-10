@@ -103,7 +103,7 @@ func (g *gribService) DownloadAndProcessGribFile(sys_time bool, month, day, hour
 		g.convertGribToCsv("snod.csv")
 	}
 
-	gribSnow := &depthMap{name: "Snow", Logger: g.Logger}
+	gribSnow := NewDepthMap()
 	gribSnow.LoadCsv(snow_csv_file)
 
 	// remove old grib files
@@ -112,7 +112,7 @@ func (g *gribService) DownloadAndProcessGribFile(sys_time bool, month, day, hour
 		return err, nil, nil
 	}
 
-	coastalSnow := ElsaOnTheCoast(gribSnow, g.cs)
+	coastalSnow := ElsaOnTheCoast(gribSnow)
 	g.SnowDm = coastalSnow
 	g.ready = true
 	return nil, gribSnow, coastalSnow

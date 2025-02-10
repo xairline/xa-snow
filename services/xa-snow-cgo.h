@@ -24,6 +24,7 @@
 
 // contains the C functions that are presented to go
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -44,11 +45,21 @@ struct R_IsCoast_ {
 } R_IsCoast;
 R_IsCoast CMIsCoast(int i, int j);
 
+//----------------------------------------------------------------------------
 typedef
 struct R_SnowDepthToXplaneSnowNow_ {
     float snowNow, snowAreaWidth, iceNow;
 } R_SnowDepthToXplaneSnowNow;
 R_SnowDepthToXplaneSnowNow CSnowDepthToXplaneSnowNow(float depth);
+
+//----------------------------------------------------------------------------
+uint64_t DMNewDepthMap();
+void DMDestroyDepthMap(uint64_t ptr);
+
+void DMLoadCsv(uint64_t ptr, char *fname);
+float DMGetIdx(uint64_t ptr, int iLon, int iLat);
+float DMGet(uint64_t ptr, float lon, float lat);
+uint64_t DMElsaOnTheCoast(uint64_t ptr);
 
 #ifdef __cplusplus
 }

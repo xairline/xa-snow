@@ -27,6 +27,7 @@ package services
 
 import (
 	"github.com/xairline/xa-snow/utils/logger"
+    "runtime"
     "unsafe"
 )
 
@@ -70,7 +71,58 @@ func NewCoastService(logger logger.Logger, dir string) CoastService {
     return nil;
 }
 
+//----------------------------------------------------------------------------------
 func SnowDepthToXplaneSnowNow(depth float32) (float32, float32, float32) {
     res := C.CSnowDepthToXplaneSnowNow(C.float(depth))
     return float32(res.snowNow), float32(res.snowAreaWidth), float32(res.iceNow)
+}
+
+//----------------------------------------------------------------------------------
+type DepthMap interface {
+	Get(lon, lat float32) float32
+	LoadCsv(csv_name string)
+
+	// get by index with wrap around
+	GetIdx(iLon, iLat int) float32
+    GetPtr() uint64
+}
+
+type depthMap struct {
+    ptr uint64;         // pointer to the C++ object
+}
+
+func dmFinalizer(m *depthMap) {
+    C.DMDestroyDepthMap(C.uint64_t(m.ptr))
+}
+
+func NewDepthMap() DepthMap {
+    dm := &depthMap{};
+    dm.ptr = uint64(C.DMNewDepthMap())
+    runtime.SetFinalizer(dm, dmFinalizer)
+    return dm
+}
+
+func (m *depthMap) GetPtr() uint64 {
+    return m.ptr;
+}
+
+func (m *depthMap) LoadCsv(csv_name string) {
+    var cname *C.char = C.CString(csv_name)
+    defer C.free(unsafe.Pointer(cname))
+    C.DMLoadCsv(C.uint64_t(m.ptr), cname);
+}
+
+func (m *depthMap) GetIdx(iLon, iLat int) float32 {
+    return float32(C.DMGetIdx(C.uint64_t(m.ptr), C.int(iLon), C.int(iLat)))
+}
+
+func (m *depthMap) Get(lon, lat float32) float32 {
+    return float32(C.DMGet(C.uint64_t(m.ptr), C.float(lon), C.float(lat)))
+}
+
+func ElsaOnTheCoast(gribSnow DepthMap) DepthMap {
+    gs_ptr := gribSnow.GetPtr()
+    new_dm := &depthMap{}
+    new_dm.ptr = uint64(C.DMElsaOnTheCoast(C.uint64_t(gs_ptr)))
+    return new_dm;
 }

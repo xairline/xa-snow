@@ -51,4 +51,22 @@ extern std::string xp_dir;
 extern void log_msg(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
 extern std::tuple<float, float, float> SnowDepthToXplaneSnowNow(float depth); // snowNow, snowAreaWidth, iceNow
 
+struct CoastMap {
+    // water map in 0.1° resolution
+    static constexpr int n_wm = 3600;
+    static constexpr int m_wm = 1800;
+
+    uint8_t wmap [n_wm][m_wm];		// encoded as (dir << 2)|sXxx
+
+    void wrap_ij(int i, int j, int &wrapped_i, int& wrapped_j);
+
+  public:
+    bool load(const std::string& dir);
+    bool is_water(int i, int j);
+    bool is_land(int i, int j);
+    std::tuple<bool, int, int, int> is_coast(int i, int j); // -> yes_no, dir_x, dir_y, grid_angle
+};
+
+extern CoastMap coast_map;
+
 #endif
