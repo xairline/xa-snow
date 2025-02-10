@@ -10,8 +10,8 @@ fi
 # therefore we go with mixed mode names
 this_dir=$(cygpath -m "$this_dir")
 
-export CGO_CFLAGS="-DIBM=1 -O2"
-export CGO_CXXFLAGS="-std=c++20 -DIBM=1 -Wall -O2 -I${this_dir}/SDK/CHeaders/XPLM"
+export CGO_CFLAGS="-DIBM=1 -DSPNG_STATIC -DSPNG_USE_MINIZ -O2"
+export CGO_CXXFLAGS="-std=c++20 -DIBM=1 -DSPNG_STATIC -DSPNG_USE_MINIZ -Wall -O2 -I${this_dir}/SDK/CHeaders/XPLM"
 export CGO_LDFLAGS="-L${this_dir}/SDK/Libraries/Win -lXPLM_64 -static-libgcc -static -lstdc++"
 export GOOS=windows
 export GOARCH=amd64
