@@ -69,4 +69,5 @@ struct CoastMap {
 
 extern CoastMap coast_map;
 
+extern int sub_exec(const std::string& command);
 #endif

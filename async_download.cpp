@@ -1,4 +1,23 @@
-#include <iostream>
+//
+//    A contribution to https://github.com/xairline/xa-snow by zodiac1214
+//
+//    Copyright (C) 2025  Holger Teutsch
+//
+//    This library is free software; you can redistribute it and/or
+//    modify it under the terms of the GNU Lesser General Public
+//    License as published by the Free Software Foundation; either
+//    version 2.1 of the License, or (at your option) any later version.
+//
+//    This library is distributed in the hope that it will be useful,
+//    but WITHOUT ANY WARRANTY; without even the implied warranty of
+//    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+//    Lesser General Public License for more details.
+//
+//    You should have received a copy of the GNU Lesser General Public
+//    License along with this library; if not, write to the Free Software
+//    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
+//    USA
+//
 
 #include <cstdio>
 #include <ctime>
@@ -24,14 +43,14 @@ GetDownloadUrl(bool sys_time, const std::tm utime_utc)
     ctime_utc.tm_min -= 25;
     std::mktime(&ctime_utc); // Normalize the time structure
 
-    char buffer[100];
+    char buffer[1000];
     std::strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", &ctime_utc);
     log_msg("adjusted utime_utc: %s", buffer);
 
     const static std::array<int, 4> cycles = {0, 6, 12, 18};
     int cycle = 0;
     for (int c : cycles) {
-        if (utime_utc.tm_hour >= c) {
+        if (ctime_utc.tm_hour >= c) {
             cycle = c;
         }
     }
@@ -42,7 +61,7 @@ GetDownloadUrl(bool sys_time, const std::tm utime_utc)
     }
     int forecast = (adjs + utime_utc.tm_hour - cycle) / 3 * 3;
 
-    snprintf(buffer, sizeof(buffer), "%04d%02d%02d", ctime_utc.tm_year + 1900, ctime_utc.tm_mon + 1, ctime_utc.tm_mday);
+    snprintf(buffer, sizeof(buffer), "%d%02d%02d", ctime_utc.tm_year + 1900, ctime_utc.tm_mon + 1, ctime_utc.tm_mday);
     std::string cycleDate(buffer);
 
     if (sys_time) {
@@ -100,7 +119,7 @@ http_get(const char *url, FILE *f, int timeout)
     return true;
 }
 
-std::string gribFileFolder = ".";
+std::string gribFileFolder;
 
 std::string
 DownloadGribFile(bool sys_time, int day, int month, int hour)
@@ -169,29 +188,53 @@ DownloadGribFile(bool sys_time, int day, int month, int hour)
             log_msg("ERROR: can't create '%s'", grib_file_path.c_str());
             return "";
         }
-        if (http_get(url.c_str(), out, 10)) {
+        if (http_get(url.c_str(), out, 10))
             log_msg("GRIB File downloaded successfully");
-        } else {
+        else {
             log_msg("GRIB File download failed");
-            return "";
+            grib_file_path = "";
         }
+
+        fclose(out);
     }
 
     return grib_file_path;
 }
 
-// everything is controlled by the flightloop so we don't need
-// mutexes
+// everything is synchronously fired by the flightloop so we don't need mutexes
 static bool download_active;
+std::future<bool> download_future;
 
-bool
+static bool
 DownloadAndProcessGribFile(bool sys_time, int day, int month, int hour)
 {
-   std::string grib_file = DownloadGribFile(sys_time, day, month, hour);
-   return grib_file.size() != 0;
-}
+    std::string grib_file_path = DownloadGribFile(sys_time, day, month, hour);
+    if (grib_file_path.size() == 0)
+        return false;
 
-std::future<bool> download_future;
+#if IBM == 1
+    std::string bin_path = "bin/WIN32wgrib2.exe";
+#else
+/*
+	}
+	if myOs == "linux" {
+		executablePath = filepath.Join(g.binPath, "linux-wgrib2")
+	}
+	if myOs == "darwin" {
+		executablePath = filepath.Join(g.binPath, "OSX11wgrib2")
+	}
+
+ */
+#endif
+    std::string snow_csv_name = "snod.csv";
+
+	// export grib file to csv
+	// 0:3600:0.1 means scan longitude from 0, 3600 steps with step 0.1 degree
+	// -90:1800:0.1 means scan latitude from -90, 1800 steps with step 0.1 degree
+	std::string cmd = bin_path + " -s -lola 0:3600:0.1 -90:1800:0.1 " + snow_csv_name + " spread " + grib_file_path + " -match_fs SNOD";
+    log_msg("cmd:'%s'", cmd.c_str());
+    return (0 == sub_exec(cmd));
+}
 
 static bool
 DownloadAndProcess(bool sys_time, int day, int month, int hour)
@@ -209,6 +252,7 @@ DownloadAndProcess(bool sys_time, int day, int month, int hour)
     return false;
 }
 
+// start download in the background
 void
 StartAsyncDownload(bool sys_time, int day, int month, int hour)
 {
@@ -220,7 +264,7 @@ StartAsyncDownload(bool sys_time, int day, int month, int hour)
     download_active = true;
 }
 
-// return true on the transition of active to done
+// return true on the transition from download_active to not active
 bool
 CheckAsyncDownload()
 {
@@ -236,29 +280,39 @@ CheckAsyncDownload()
     return true;
 }
 
+#include <iostream>
+std::string xp_dir;
 static void
 flightloop_emul()
 {
     while (! CheckAsyncDownload()) {
         log_msg("... waiting for async download");
-        std::this_thread::sleep_for(std::chrono::milliseconds(300));
+        std::this_thread::sleep_for(std::chrono::seconds(3));
     }
 }
 
-//  g++ -std=c++20 -Wall -Iservices -ISDK/CHeaders/XPLM -DIBM=1 -DLOCAL_DEBUGSTRING -lcurl async_download.cpp services/log_msg.cpp
+//  g++ -std=c++20 -Wall -Iservices -ISDK/CHeaders/XPLM -DIBM=1 -DLOCAL_DEBUGSTRING async_download.cpp services/log_msg.cpp services/sub_exec.cpp -lcurl
 int main()
 {
+    xp_dir = ".";
+    gribFileFolder = xp_dir;
+
     StartAsyncDownload(true, 0, 0, 0);
     flightloop_emul();
+    std::cout << "-------------------------------------------------\n\n";
 
+#if 0
     StartAsyncDownload(false, 10, 2, 21);
     flightloop_emul();
+    std::cout << "-------------------------------------------------\n\n";
 
     StartAsyncDownload(false, 20, 2, 22);
     flightloop_emul();
+    std::cout << "-------------------------------------------------\n\n";
 
     StartAsyncDownload(false, 20, 1, 10);
     flightloop_emul();
+#endif
 
     return 0;
 }
