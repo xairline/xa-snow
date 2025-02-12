@@ -22,9 +22,6 @@
 #ifndef _XA_SNOW_H_
 #define _XA_SNOW_H_
 
-#define SPNG_STATIC 
-#define SPNG_USE_MINIZ
-
 #include <string>
 #include <tuple>
 #include <numbers>
@@ -92,5 +89,9 @@ public:
 
 extern CoastMap coast_map;
 extern DepthMap *grib_snod_map, *snod_map;
+
+extern "C" void StartAsyncDownload(bool sys_time, int day, int month, int hour);
+extern "C" bool CheckAsyncDownload();
+
 extern int sub_exec(const std::string& command);
 #endif

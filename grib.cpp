@@ -293,6 +293,7 @@ DownloadAndProcess(bool sys_time, int day, int month, int hour)
 }
 
 // start download in the background
+extern "C"
 void
 StartAsyncDownload(bool sys_time, int day, int month, int hour)
 {
@@ -305,6 +306,7 @@ StartAsyncDownload(bool sys_time, int day, int month, int hour)
 }
 
 // return true if do
+extern "C"
 bool
 CheckAsyncDownload()
 {
@@ -318,51 +320,4 @@ CheckAsyncDownload()
     bool res = download_future.get();
     log_msg("Download status: %d", res);
     return true;
-}
-
-#include <iostream>
-std::string xp_dir;
-std::string plugin_dir;
-std::string output_dir;
-DepthMap *grib_snod_map, *snod_map;
-
-static void
-flightloop_emul()
-{
-    while (! CheckAsyncDownload()) {
-        log_msg("... waiting for async download");
-        std::this_thread::sleep_for(std::chrono::seconds(3));
-    }
-}
-
-//  g++ -std=c++20 -Wall -Iservices -ISDK/CHeaders/XPLM -DIBM=1 -DLOCAL_DEBUGSTRING async_download.cpp services/log_msg.cpp services/sub_exec.cpp -lcurl
-int main()
-{
-    xp_dir = ".";
-    plugin_dir = xp_dir;
-    output_dir = xp_dir;
-
-    coast_map.load(plugin_dir);
-
-    grib_snod_map = new DepthMap();
-    snod_map = new DepthMap();
-
-    StartAsyncDownload(true, 0, 0, 0);
-    flightloop_emul();
-    std::cout << "-------------------------------------------------\n\n";
-
-#if 0
-    StartAsyncDownload(false, 10, 2, 21);
-    flightloop_emul();
-    std::cout << "-------------------------------------------------\n\n";
-
-    StartAsyncDownload(false, 20, 2, 22);
-    flightloop_emul();
-    std::cout << "-------------------------------------------------\n\n";
-
-    StartAsyncDownload(false, 20, 1, 10);
-    flightloop_emul();
-#endif
-
-    return 0;
 }
