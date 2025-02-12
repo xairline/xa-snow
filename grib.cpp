@@ -272,6 +272,7 @@ DownloadAndProcessGribFile(bool sys_time, int day, int month, int hour)
 
     grib_snod_map->load_csv(snod_csv_name);
     ElsaOnTheCoast(*grib_snod_map, *snod_map);
+    CreateSnowMapPng("snow_depth.png");
     return true;
 }
 

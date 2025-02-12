@@ -89,6 +89,7 @@ public:
 
 extern CoastMap coast_map;
 extern DepthMap *grib_snod_map, *snod_map;
+extern int CreateSnowMapPng(const std::string& png_path);
 
 extern "C" void StartAsyncDownload(bool sys_time, int day, int month, int hour);
 extern "C" bool CheckAsyncDownload();

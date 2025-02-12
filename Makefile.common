@@ -4,13 +4,14 @@ INCLUDES=-I. -I$(SDK)/CHeaders/XPLM -I$(SDK)/CHeaders/Widgets
 # platform independent defines
 DEFINES=-DSPNG_STATIC -DSPNG_USE_MINIZ
 
-SOURCES_CPP=airport.cpp coast.cpp collect_airports.cpp depth_map.cpp log_msg.cpp sub_exec.cpp grib.cpp
+SOURCES_CPP=airport.cpp coast.cpp collect_airports.cpp depth_map.cpp log_msg.cpp sub_exec.cpp \
+    grib.cpp create_snow_png.cpp
 SOURCES_C=miniz.c spng.c
 
 # the c++ standard to use
 CXXSTD=-std=c++20
 
-OPT=-O
+OPT=-O3
 
 # e.g. -DNDEBUG
 DEBUG=

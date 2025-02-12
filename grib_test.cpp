@@ -26,6 +26,7 @@
 #include <iostream>
 #include <thread>
 #include <chrono>
+#include <stdio.h>
 
 #include "xa-snow.h"
 
@@ -57,6 +58,7 @@ int main()
 
     StartAsyncDownload(true, 0, 0, 0);
     flightloop_emul();
+
     std::cout << "-------------------------------------------------\n\n";
 
 #if 0
