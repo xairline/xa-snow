@@ -24,9 +24,10 @@
 #include <cmath>
 #include <string>
 #include <tuple>
-#include <spng.h> // For image processing
 
 #include "xa-snow.h"
+#include <spng.h> // For image processing, include after xa-snow.h
+
 
 
 // we use a "grid direction" = 360°/45° in standard math convention
@@ -223,6 +224,7 @@ CoastMap::load(const std::string& dir)
     return true;
 }
 
+#if 0
 // C++ to C translations that will eventually go away
 #include "xa-snow-cgo.h"
 
@@ -252,6 +254,7 @@ R_IsCoast CMIsCoast(int i, int j)
     std::tie(r.yes_no, r.dir_x, r.dir_y, r.grid_angle) = coast_map.is_coast(i, j);
     return r;
 }
+#endif
 
 #ifdef TEST_COAST
 // g++ -DTEST_COAST -std=c++20 -DLOCAL_DEBUGSTRING -DIBM -Wall -Werror -ISDK/CHeaders/XPLM -Iservices/ services/coast.cpp services/log_msg.cpp  -l:libpng.a -l:libz.a

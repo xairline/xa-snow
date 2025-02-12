@@ -27,10 +27,10 @@
 #include <future>
 #include <chrono>
 #include <filesystem>
+#include <stdexcept>
 #include <curl/curl.h>
 
 #include "xa-snow.h"
-
 
 // in:  user specified time
 // out: url, cycle time, cycle num
@@ -83,7 +83,7 @@ GetDownloadUrl(bool sys_time, const std::tm utime_utc)
 }
 
 static bool
-http_get(const char *url, FILE *f, int timeout)
+HttpGet(const char *url, FILE *f, int timeout)
 {
     CURL *curl;
     CURLcode res;
@@ -119,9 +119,7 @@ http_get(const char *url, FILE *f, int timeout)
     return true;
 }
 
-std::string gribFileFolder;
-
-std::string
+static std::string
 DownloadGribFile(bool sys_time, int day, int month, int hour)
 {
     log_msg("downloadGribFile: Using system time: %d, month: %d, day: %d, hour: %d", sys_time, day, month, hour);
@@ -172,23 +170,24 @@ DownloadGribFile(bool sys_time, int day, int month, int hour)
     log_msg("provided time (UTC): %s", buffer);
 
     auto [url, ctime_utc_tm, cycle] = GetDownloadUrl(sys_time, ptime_utc_tm);
-    log_msg("Downloading GRIB file from '%s'", url.c_str());
 
     // Get grib file's date date in yyyy-mm-dd format
     strftime(buffer, sizeof(buffer), "%Y-%m-%d", &ctime_utc_tm);
     char fn_buffer[500];
-    snprintf(fn_buffer, sizeof(fn_buffer), "%s/%s_%d_noaa.grib2", gribFileFolder.c_str(), buffer, cycle);
+    snprintf(fn_buffer, sizeof(fn_buffer), "%s/%s_%d_noaa.grib2", output_dir.c_str(), buffer, cycle);
     std::string grib_file_path = fn_buffer;
     log_msg("GRIB file path: '%s'", grib_file_path.c_str());
 
     // if file does not exist, download
     if (!std::filesystem::exists(grib_file_path)) {
+        log_msg("Downloading GRIB file from '%s'", url.c_str());
+
         FILE *out = fopen(grib_file_path.c_str(), "wb");
         if (out == NULL) {
             log_msg("ERROR: can't create '%s'", grib_file_path.c_str());
             return "";
         }
-        if (http_get(url.c_str(), out, 10))
+        if (HttpGet(url.c_str(), out, 10))
             log_msg("GRIB File downloaded successfully");
         else {
             log_msg("GRIB File download failed");
@@ -201,39 +200,79 @@ DownloadGribFile(bool sys_time, int day, int month, int hour)
     return grib_file_path;
 }
 
+static void
+RemoveOldGribFiles(std::string file_to_keep)
+{
+    // posixify filenames for textual comparison
+#if IBM == 1
+    std::replace(file_to_keep.begin(), file_to_keep.end(), '\\', '/');
+#endif
+
+    log_msg("Removing old grib files");
+    log_msg("File to keep: %s", file_to_keep.c_str());
+    log_msg("Grib file folder: %s", output_dir.c_str());
+
+    try {
+        for (const auto& entry : std::filesystem::directory_iterator(output_dir)) {
+            auto path = entry.path().string();
+#if IBM == 1
+            std::replace(path.begin(), path.end(), '\\', '/');
+#endif
+            // Check for files with .grib extension
+            if (path.find("_noaa.grib2") != std::string::npos && path.find(file_to_keep) == std::string::npos) {
+                std::filesystem::remove(path);
+                log_msg("Removed: %s", path.c_str());
+            }
+        }
+    } catch (const std::exception& e) {
+        log_msg("Error removing old grib files: %s", e.what());
+    }
+}
+
 // everything is synchronously fired by the flightloop so we don't need mutexes
 static bool download_active;
-std::future<bool> download_future;
+static std::future<bool> download_future;
 
+static const char *wgrib2 =
+#if IBM == 1
+"/WIN32wgrib2.exe";
+#elif LIN == 1
+"/linux-wgrib2";
+#elif APL == 1
+"/OSX11wgrib2";
+#endif
+
+// Runs async
 static bool
 DownloadAndProcessGribFile(bool sys_time, int day, int month, int hour)
 {
-    std::string grib_file_path = DownloadGribFile(sys_time, day, month, hour);
-    if (grib_file_path.size() == 0)
-        return false;
+    const char *snod_csv_name = std::getenv("USE_SNOD_CSV");
 
-#if IBM == 1
-    std::string bin_path = "bin/WIN32wgrib2.exe";
-#else
-/*
-	}
-	if myOs == "linux" {
-		executablePath = filepath.Join(g.binPath, "linux-wgrib2")
-	}
-	if myOs == "darwin" {
-		executablePath = filepath.Join(g.binPath, "OSX11wgrib2")
-	}
+    if (NULL == snod_csv_name) {
+        std::string grib_file_path = DownloadGribFile(sys_time, day, month, hour);
+        if (grib_file_path.size() == 0)
+            return false;
 
- */
-#endif
-    std::string snow_csv_name = "snod.csv";
+        snod_csv_name = "snod.csv";
 
-	// export grib file to csv
-	// 0:3600:0.1 means scan longitude from 0, 3600 steps with step 0.1 degree
-	// -90:1800:0.1 means scan latitude from -90, 1800 steps with step 0.1 degree
-	std::string cmd = bin_path + " -s -lola 0:3600:0.1 -90:1800:0.1 " + snow_csv_name + " spread " + grib_file_path + " -match_fs SNOD";
-    log_msg("cmd:'%s'", cmd.c_str());
-    return (0 == sub_exec(cmd));
+        // export grib file to csv
+        // 0:3600:0.1 means scan longitude from 0, 3600 steps with step 0.1 degree
+        // -90:1800:0.1 means scan latitude from -90, 1800 steps with step 0.1 degree
+        std::string cmd = plugin_dir + "/bin" + wgrib2
+            + " -s -lola 0:3600:0.1 -90:1800:0.1 " + snod_csv_name + " spread " + grib_file_path + " -match_fs SNOD";
+
+        log_msg("cmd:'%s'", cmd.c_str());
+        int ex = sub_exec(cmd);
+        if (ex != 0)
+            return false;
+
+        RemoveOldGribFiles(grib_file_path);
+    } else
+        log_msg("Using existing snod_csv file '%s'", snod_csv_name);
+
+    grib_snod_map->load_csv(snod_csv_name);
+    ElsaOnTheCoast(*grib_snod_map, *snod_map);
+    return true;
 }
 
 static bool
@@ -248,6 +287,7 @@ DownloadAndProcess(bool sys_time, int day, int month, int hour)
             return true;
         }
     }
+
     log_msg("grib download/process: all retry failed");
     return false;
 }
@@ -264,7 +304,7 @@ StartAsyncDownload(bool sys_time, int day, int month, int hour)
     download_active = true;
 }
 
-// return true on the transition from download_active to not active
+// return true if do
 bool
 CheckAsyncDownload()
 {
@@ -282,6 +322,10 @@ CheckAsyncDownload()
 
 #include <iostream>
 std::string xp_dir;
+std::string plugin_dir;
+std::string output_dir;
+DepthMap *grib_snod_map, *snod_map;
+
 static void
 flightloop_emul()
 {
@@ -295,7 +339,13 @@ flightloop_emul()
 int main()
 {
     xp_dir = ".";
-    gribFileFolder = xp_dir;
+    plugin_dir = xp_dir;
+    output_dir = xp_dir;
+
+    coast_map.load(plugin_dir);
+
+    grib_snod_map = new DepthMap();
+    snod_map = new DepthMap();
 
     StartAsyncDownload(true, 0, 0, 0);
     flightloop_emul();

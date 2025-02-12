@@ -26,28 +26,8 @@
 
 #include "xa-snow.h"
 
-// depth map of the world in 0.1° resolution
-static constexpr int n_iLon = 3600;
-static constexpr int n_iLat = 1801;
-
-
-class DepthMap {
-    friend DepthMap* ElsaOnTheCoast(DepthMap* gribSnow);
-
-protected:
-    float val[n_iLon][n_iLat] = {0};
-
-public:
-    DepthMap() { log_msg("DepthMap created: %p", this); }
-    ~DepthMap() { log_msg("DepthMap destoyed: %p", this); }
-    float Get(float lon, float lat);
-    float GetIdx(int iLon, int iLat);
-    void LoadCsv(const char *csv_name);
-};
-
-
 float
-DepthMap::GetIdx(int iLon, int iLat)
+DepthMap::GetIdx(int iLon, int iLat) const
 {
     // for lon we wrap around
     if (iLon >= n_iLon) {
@@ -68,7 +48,7 @@ DepthMap::GetIdx(int iLon, int iLat)
 
 
 float
-DepthMap::Get(float lon, float lat)
+DepthMap::Get(float lon, float lat) const
 {
     // our snow world map is 3600x1801 [0,359.9]x[0,180.0]
     lat += 90.0;
@@ -107,7 +87,7 @@ DepthMap::Get(float lon, float lat)
 }
 
 void
-DepthMap::LoadCsv(const char *csv_name)
+DepthMap::load_csv(const char *csv_name)
 {
     std::ifstream file(csv_name);
     if (!file.is_open()) {
@@ -149,20 +129,18 @@ DepthMap::LoadCsv(const char *csv_name)
     log_msg("Loading CSV file '%s': Done", csv_name);
 }
 
-DepthMap*
-ElsaOnTheCoast(DepthMap* gribSnow)
+void
+ElsaOnTheCoast(const DepthMap& grib_snow, DepthMap& new_dm)
 {
-    auto* new_dm = new DepthMap();
-
     const float min_sd = 0.02f; // only go higher than this snow depth
     int n_extend = 0;
 
     for (int i = 0; i < n_iLon; i++) {
         for (int j = 0; j < n_iLat; j++) {
-            float sd = gribSnow->GetIdx(i, j);
-            float sdn = new_dm->val[i][j]; // may already be set by inland extension earlier
+            float sd = grib_snow.GetIdx(i, j);
+            float sdn = new_dm.val[i][j]; // may already be set by inland extension earlier
             if (sd > sdn) { // always maximize
-                new_dm->val[i][j] = sd;
+                new_dm.val[i][j] = sd;
             }
 
             const int max_step = 3; // to look for inland snow ~ 5 to 10 km / step
@@ -181,7 +159,7 @@ ElsaOnTheCoast(DepthMap* gribSnow)
                         continue;
                     }
 
-                    float tmp = gribSnow->GetIdx(ii, jj);
+                    float tmp = grib_snow.GetIdx(ii, jj);
                     if (tmp > sd && tmp > min_sd) { // found snow
                         inland_dist = k;
                         inland_sd = tmp;
@@ -217,7 +195,7 @@ ElsaOnTheCoast(DepthMap* gribSnow)
                         if (y < 0) {
                             y = 0;
                         }
-                        new_dm->val[x][y] = inland_sd;
+                        new_dm.val[x][y] = inland_sd;
                         n_extend++;
                     }
                 }
@@ -226,49 +204,4 @@ ElsaOnTheCoast(DepthMap* gribSnow)
     }
 
     log_msg("Extended coastal snow on %d grid points", n_extend);
-    return new_dm;
-}
-
-// C++ to C translations that will eventually go away
-#include "xa-snow-cgo.h"
-
-extern "C"
-uint64_t DMNewDepthMap()
-{
-    return (uint64_t)new DepthMap();
-}
-
-extern "C"
-void DMLoadCsv(uint64_t ptr, char *fname)
-{
-    DepthMap* dm = reinterpret_cast<DepthMap*>(ptr);
-    dm->LoadCsv(fname);
-}
-
-extern "C"
-float DMGetIdx(uint64_t ptr, int iLon, int iLat)
-{
-    DepthMap* dm = reinterpret_cast<DepthMap*>(ptr);
-    return dm->GetIdx(iLon, iLat);
-}
-
-extern "C"
-float DMGet(uint64_t ptr, float lon, float lat)
-{
-    DepthMap* dm = reinterpret_cast<DepthMap*>(ptr);
-    return dm->Get(lon, lat);
-}
-
-extern "C"
-uint64_t DMElsaOnTheCoast(uint64_t ptr)
-{
-    DepthMap* dm = reinterpret_cast<DepthMap*>(ptr);
-    return (uint64_t)ElsaOnTheCoast(dm);
-}
-
-extern "C"
-void DMDestroyDepthMap(uint64_t ptr)
-{
-    DepthMap* dm = reinterpret_cast<DepthMap*>(ptr);
-    delete(dm);
 }

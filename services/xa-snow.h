@@ -22,6 +22,9 @@
 #ifndef _XA_SNOW_H_
 #define _XA_SNOW_H_
 
+#define SPNG_STATIC 
+#define SPNG_USE_MINIZ
+
 #include <string>
 #include <tuple>
 #include <numbers>
@@ -44,8 +47,9 @@ extern XPLMDataRef plane_lat_dr, plane_lon_dr, plane_elevation_dr, plane_true_ps
 extern XPLMProbeInfo_t probeinfo;
 extern XPLMProbeRef probe_ref;
 
-
 extern std::string xp_dir;
+extern std::string plugin_dir;
+extern std::string output_dir;
 
 // functions
 extern void log_msg(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
@@ -67,7 +71,26 @@ struct CoastMap {
     std::tuple<bool, int, int, int> is_coast(int i, int j); // -> yes_no, dir_x, dir_y, grid_angle
 };
 
-extern CoastMap coast_map;
+// depth map of the world in 0.1° resolution
+static constexpr int n_iLon = 3600;
+static constexpr int n_iLat = 1801;
 
+
+class DepthMap {
+    friend void ElsaOnTheCoast(const DepthMap& grib_snow, DepthMap& new_dm);
+
+protected:
+    float val[n_iLon][n_iLat] = {0};
+
+public:
+    DepthMap() { log_msg("DepthMap created: %p", this); }
+    ~DepthMap() { log_msg("DepthMap destoyed: %p", this); }
+    float Get(float lon, float lat) const;
+    float GetIdx(int iLon, int iLat) const;
+    void load_csv(const char *csv_name);
+};
+
+extern CoastMap coast_map;
+extern DepthMap *grib_snod_map, *snod_map;
 extern int sub_exec(const std::string& command);
 #endif

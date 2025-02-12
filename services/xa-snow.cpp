@@ -21,13 +21,15 @@
 
 #include <cstdio>
 #include <string>
+#include <filesystem>
 
 #include "XPLMUtilities.h"
 
 #include "xa-snow.h"
 #include "airport.h"
 
-std::string xp_dir;
+std::string xp_dir, plugin_dir, output_dir;
+
 XPLMDataRef plane_lat_dr, plane_lon_dr, plane_elevation_dr, plane_true_psi_dr,
 	plane_y_agl_dr;
 
@@ -50,6 +52,9 @@ InitXaSnowC()
 		char buffer[2048];
 		XPLMGetSystemPath(buffer);
 		xp_dir = std::string(buffer);
+        plugin_dir = xp_dir + "/Resources/plugins/xa-snow";
+        output_dir = xp_dir + "/Output/snow";
+        std::filesystem::create_directory(output_dir);
 
         probeinfo.structSize = sizeof(XPLMProbeInfo_t);
         probe_ref = XPLMCreateProbe(xplm_ProbeY);
