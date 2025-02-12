@@ -1,12 +1,12 @@
 SDK=SDK
-INCLUDES=-I. -I$(SDK)/CHeaders/XPLM -I$(SDK)/CHeaders/Widgets
+INCLUDES=-I. -Iservices -I$(SDK)/CHeaders/XPLM -I$(SDK)/CHeaders/Widgets
 
 # platform independent defines
 DEFINES=-DSPNG_STATIC -DSPNG_USE_MINIZ
 
 SOURCES_CPP=airport.cpp coast.cpp collect_airports.cpp depth_map.cpp log_msg.cpp sub_exec.cpp \
-    grib.cpp create_snow_png.cpp
-SOURCES_C=miniz.c spng.c
+    grib.cpp create_snow_png.cpp xa-snow.cpp
+SOURCES_C=miniz.c spng.c http_get.c
 
 # the c++ standard to use
 CXXSTD=-std=c++20

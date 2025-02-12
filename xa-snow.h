@@ -49,7 +49,7 @@ extern std::string plugin_dir;
 extern std::string output_dir;
 
 // functions
-extern void log_msg(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
+extern "C" void log_msg(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
 extern std::tuple<float, float, float> SnowDepthToXplaneSnowNow(float depth); // snowNow, snowAreaWidth, iceNow
 
 struct CoastMap {
@@ -93,6 +93,7 @@ extern int CreateSnowMapPng(const std::string& png_path);
 
 extern "C" void StartAsyncDownload(bool sys_time, int day, int month, int hour);
 extern "C" bool CheckAsyncDownload();
+extern "C" bool HttpGet(const char *url, FILE *f, int timeout);
 
 extern int sub_exec(const std::string& command);
 #endif

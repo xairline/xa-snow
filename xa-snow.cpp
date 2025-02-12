@@ -36,6 +36,8 @@ XPLMDataRef plane_lat_dr, plane_lon_dr, plane_elevation_dr, plane_true_psi_dr,
 XPLMProbeInfo_t probeinfo;
 XPLMProbeRef probe_ref;
 
+DepthMap *grib_snod_map, *snod_map;
+
 extern "C" void
 InitXaSnowC()
 {
@@ -60,8 +62,19 @@ InitXaSnowC()
         probe_ref = XPLMCreateProbe(xplm_ProbeY);
 
 		CollectAirports(xp_dir);
+
+        coast_map.load(plugin_dir);
+        grib_snod_map = new DepthMap();
+        snod_map = new DepthMap();
+
 		log_msg("InitXaSnowC done, xp_dir: '%s'", xp_dir.c_str());
 	}
+}
+
+extern "C" float
+GetSnowDepth(float lat, float lon)
+{
+    return snod_map->Get(lon, lat);
 }
 
 // Initialize static member variables

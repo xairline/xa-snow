@@ -34,6 +34,7 @@ XPLMDebugString(const char *str)
 #include "XPLMUtilities.h"
 #endif
 
+extern "C"
 void
 log_msg(const char *fmt, ...)
 {

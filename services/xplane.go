@@ -5,7 +5,6 @@ package services
 //go:generate mockgen -destination=./__mocks__/xplane.go -package=mocks -source=xplane.go
 
 import (
-	"context"
 	"github.com/joho/godotenv"
 	"github.com/xairline/goplane/extra"
 	"github.com/xairline/goplane/xplm/dataAccess"
@@ -15,8 +14,7 @@ import (
 	"github.com/xairline/goplane/xplm/utilities"
 	"github.com/xairline/xa-snow/utils/logger"
 	"os"
-	"path"
-	"path/filepath"
+    "path/filepath"
 	"runtime"
 	"strconv"
 	"sync"
@@ -24,6 +22,7 @@ import (
 )
 
 // #include "xa-snow-cgo.h"
+// #include <stdlib.h>
 import "C"
 
 var VERSION = "development"
@@ -39,7 +38,6 @@ type XplaneService interface {
 
 type xplaneService struct {
 	Plugin      *extra.XPlanePlugin
-	GribService GribService
 	drefsInited bool
 
 	lat_dr, lon_dr,
@@ -63,10 +61,6 @@ type xplaneService struct {
 	myMenuItemIndex, myMenuItemIndex2, myMenuItemIndex3, myMenuItemIndex4, myMenuItemIndex5 int
 
 	configFilePath string
-
-	cancelFun context.CancelFunc
-
-	downloadGribLock sync.Mutex
 }
 
 // private drefs need delayed initialization
@@ -111,25 +105,17 @@ func NewXplaneService(
 
 		C.InitXaSnowC()	// init the C environment
 
-		systemPath := utilities.GetSystemPath()
-		pluginPath := filepath.Join(systemPath, "Resources", "plugins", "XA-snow")
-		_, cancelFunc := context.WithCancel(context.Background())
 		xplaneSvc := &xplaneService{
 			Plugin: extra.NewPlugin("X Airline Snow - "+VERSION, "com.github.xairline.xa-snow", "show accumulated snow in X-Plane's world"),
-			GribService: NewGribService(logger,
-				path.Join(systemPath, "Output", "snow"),
-				filepath.Join(pluginPath, "bin"),
-				NewCoastService(pluginPath)),
 			Logger:     logger,
 			disabled:   false,
 			override:   false,
 			rwyIce:     true,
 			historical: false,
 			autoUpdate: false,
-			cancelFun:  cancelFunc,
 			loopCnt:    0,
 		}
-		xplaneSvc.Plugin.SetPluginStateCallback(xplaneSvc.onPluginStateChanged)
+        xplaneSvc.Plugin.SetPluginStateCallback(xplaneSvc.onPluginStateChanged)
 		xplaneSvc.Plugin.SetMessageHandler(xplaneSvc.messageHandler)
 		return xplaneSvc
 	}
@@ -242,7 +228,6 @@ func (s *xplaneService) onPluginStart() {
 
 func (s *xplaneService) onPluginStop() {
 	s.Logger.Info("Plugin stopped")
-	s.cancelFun()
 }
 
 // flightloop, high freq code!
@@ -256,7 +241,6 @@ func (s *xplaneService) flightLoop(
 	// flightloop start is the first point in time where the time datarefs are set correctly
 	if s.loopCnt == 0 {
 		s.loopCnt++
-		s.GribService.SetNotReady()
 		s.Logger.Info("Flightloop starting, kicking off")
 
 		// delayed init
@@ -276,28 +260,11 @@ func (s *xplaneService) flightLoop(
 			hour = time.Now().Hour()
 		}
 
-		go func() {
-			// Check if the mutex is locked without blocking
-			s.downloadGribLock.Lock()
-			s.Logger.Infof("Download grib file: lock accuired")
-			defer s.downloadGribLock.Unlock()
-			for i := 0; i < 3; i++ {
-				err, _, _ := gribSvc.DownloadAndProcessGribFile(sys_time, month, day, hour)
-				if err != nil {
-					s.Logger.Errorf("Download grib file failed: %v, retry: %v", err, i)
-				} else {
-					s.Logger.Info("Download and process grib file successfully")
-					return
-				}
-			}
-			// if we came here, which means 3 retry failed
-			// there is a problem
-			s.Logger.Errorf("grib download/process: all retry failed")
-			return
-		}()
-
+        C.StartAsyncDownload(C.bool(sys_time), C.int(day), C.int(month), C.int(hour))
 		return 10.0
 	}
+
+    C.CheckAsyncDownload()
 
 	if !s.override {
 		weatherMode := dataAccess.GetIntData(s.weatherMode_dr)
@@ -307,17 +274,12 @@ func (s *xplaneService) flightLoop(
 		}
 	}
 
-	if !s.GribService.IsReady() {
-		s.Logger.Warning("Processing grib data is still in progress")
-		return 2.0
-	}
-
 	// throttle update computations
 	s.loopCnt++
 	if s.loopCnt%8 == 0 {
 		lat := dataAccess.GetFloatData(s.lat_dr)
 		lon := dataAccess.GetFloatData(s.lon_dr)
-		snowDepth_n := s.GribService.GetSnowDepth(lat, lon)
+		snowDepth_n := float32(C.GetSnowDepth(C.float(lat), C.float(lon)))
         if s.limitSnow {
             snowDepth_n = float32(C.LegacyAirportSnowDepth(C.float(snowDepth_n)))
         }

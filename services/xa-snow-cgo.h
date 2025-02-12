@@ -32,18 +32,7 @@ extern "C" {
 
 void InitXaSnowC();
 float LegacyAirportSnowDepth(float snow_depth);		// -> adjusted snow depth
-
-// some glue for golang
-bool CoastMapInit(const char *dir);
-bool CMIsWater(int i, int j);
-bool CMIsLand(int i, int j);
-
-typedef
-struct R_IsCoast_ {
-    bool yes_no;
-    int dir_x, dir_y, grid_angle;
-} R_IsCoast;
-R_IsCoast CMIsCoast(int i, int j);
+float GetSnowDepth(float lat, float lon);
 
 //----------------------------------------------------------------------------
 typedef
@@ -53,13 +42,9 @@ struct R_SnowDepthToXplaneSnowNow_ {
 R_SnowDepthToXplaneSnowNow CSnowDepthToXplaneSnowNow(float depth);
 
 //----------------------------------------------------------------------------
-uint64_t DMNewDepthMap();
-void DMDestroyDepthMap(uint64_t ptr);
 
-void DMLoadCsv(uint64_t ptr, char *fname);
-float DMGetIdx(uint64_t ptr, int iLon, int iLat);
-float DMGet(uint64_t ptr, float lon, float lat);
-uint64_t DMElsaOnTheCoast(uint64_t ptr);
+void StartAsyncDownload(bool sys_time, int day, int month, int hour);
+bool CheckAsyncDownload();
 
 #ifdef __cplusplus
 }

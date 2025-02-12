@@ -28,7 +28,6 @@
 #include <chrono>
 #include <filesystem>
 #include <stdexcept>
-#include <curl/curl.h>
 
 #include "xa-snow.h"
 
@@ -80,43 +79,6 @@ GetDownloadUrl(bool sys_time, const std::tm utime_utc)
         snprintf(buffer, sizeof(buffer), "https://github.com/xairline/weather-data/releases/download/daily/%s", filename.c_str());
         return {buffer, ctime_utc, cycle};
     }
-}
-
-static bool
-HttpGet(const char *url, FILE *f, int timeout)
-{
-    CURL *curl;
-    CURLcode res;
-    curl_global_init(CURL_GLOBAL_ALL);
-    curl = curl_easy_init();
-    if(curl == NULL)
-        return 0;
-
-    curl_easy_setopt(curl, CURLOPT_URL, url);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, timeout);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, fwrite);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, f);
-
-    curl_easy_setopt(curl, CURLOPT_HTTPGET, 1L);
-    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-    res = curl_easy_perform(curl);
-
-    // Check for errors
-    if(res != CURLE_OK) {
-        log_msg("curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
-        curl_easy_cleanup(curl);
-        curl_global_cleanup();
-        return false;
-    }
-
-    curl_off_t dl_size;
-    res = curl_easy_getinfo(curl, CURLINFO_SIZE_DOWNLOAD_T , &dl_size);
-    if(res == CURLE_OK)
-        log_msg("Downloaded %d bytes", (int)dl_size);
-
-    curl_easy_cleanup(curl);
-    curl_global_cleanup();
-    return true;
 }
 
 static std::string
