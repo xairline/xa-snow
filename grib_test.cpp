@@ -48,8 +48,8 @@ flightloop_emul()
 int main()
 {
     xp_dir = ".";
-    plugin_dir = xp_dir;
-    output_dir = xp_dir;
+    plugin_dir = ".";
+    output_dir = ".";
 
     coast_map.load(plugin_dir);
 

@@ -28,6 +28,7 @@
 
 #include "xa-snow.h"
 
+// returns 0 on success, != 0 some exit code
 int
 sub_exec(const std::string& command)
 {
@@ -121,24 +122,24 @@ sub_exec(const std::string& command)
 #else
     int exit_code = 0;
     // For Unix-like systems
-    std::array<char, 128> buffer;
+    char buffer[512];
 
     FILE* pipe = popen(command.c_str(), "r");
-    if (!pipe) throw std::runtime_error("popen() failed!");
-
-    while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
-        result += buffer.data();
+    if (!pipe) {
+        log_msg("popen() failed!");
+        return 1;
     }
-    exitCode = pclose(pipe);
 
-    if (exitCode != 0) {
-        // Assuming Logger is defined and has an error method
-        // g.Logger.Errorf("Error getting snow depth: %d, %s", exitCode, result);
-        std::cerr << "Error getting snow depth: " << exitCode << ", " << result << std::endl;
-        throw std::runtime_error("Command execution failed");
+    while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+        output += buffer;
     }
-    std::cout << output << "\n";
-    return 1;
+
+    exit_code = pclose(pipe);
+
+    if (exit_code != 0)
+        log_msg("sub_exec output: '%s', exit_code: %d", output.c_str(), exit_code);
+
+    return exit_code;
 #endif
 }
 

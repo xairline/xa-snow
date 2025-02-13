@@ -221,8 +221,8 @@ DownloadAndProcessGribFile(bool sys_time, int day, int month, int hour)
         // export grib file to csv
         // 0:3600:0.1 means scan longitude from 0, 3600 steps with step 0.1 degree
         // -90:1800:0.1 means scan latitude from -90, 1800 steps with step 0.1 degree
-        std::string cmd = plugin_dir + "/bin" + wgrib2
-            + " -s -lola 0:3600:0.1 -90:1800:0.1 " + snod_csv_name + " spread " + grib_file_path + " -match_fs SNOD";
+        std::string cmd = "\"" + plugin_dir + "/bin" + wgrib2
+            + "\" -s -lola 0:3600:0.1 -90:1800:0.1 \"" + snod_csv_name + "\" spread \"" + grib_file_path + "\" -match_fs SNOD";
 
         log_msg("cmd:'%s'", cmd.c_str());
         int ex = sub_exec(cmd);

@@ -22,6 +22,7 @@
 
 // Coding style is loosely following Google guide: https://google.github.io/styleguide/cppguide.html
 
+#include <cstring>
 #include <cstdio>
 #include <string>
 #include <fstream>

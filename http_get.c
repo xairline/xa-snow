@@ -23,6 +23,8 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+extern void log_msg(const char *fmt, ...);
+
 #if IBM == 1
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
