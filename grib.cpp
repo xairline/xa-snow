@@ -1,6 +1,7 @@
 //
-//    A contribution to https://github.com/xairline/xa-snow by zodiac1214
+//    X Airline Snow: show accumulated snow in X-Plane's world
 //
+//    Copyright (C) 2025  Zodiac1214
 //    Copyright (C) 2025  Holger Teutsch
 //
 //    This library is free software; you can redistribute it and/or
@@ -256,7 +257,6 @@ DownloadAndProcess(bool sys_time, int day, int month, int hour)
 }
 
 // start download in the background
-extern "C"
 void
 StartAsyncDownload(bool sys_time, int day, int month, int hour)
 {
@@ -269,7 +269,6 @@ StartAsyncDownload(bool sys_time, int day, int month, int hour)
 }
 
 // return true if do
-extern "C"
 bool
 CheckAsyncDownload()
 {

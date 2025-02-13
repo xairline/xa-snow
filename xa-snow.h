@@ -50,7 +50,12 @@ extern std::string output_dir;
 
 // functions
 extern "C" void log_msg(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
-extern std::tuple<float, float, float> SnowDepthToXplaneSnowNow(float depth); // snowNow, snowAreaWidth, iceNow
+extern "C" bool HttpGet(const char *url, FILE *f, int timeout);
+extern int sub_exec(const std::string& command);
+
+void StartAsyncDownload(bool sys_time, int day, int month, int hour);
+bool CheckAsyncDownload();
+
 
 struct CoastMap {
     // water map in 0.1° resolution
@@ -77,23 +82,21 @@ class DepthMap {
     friend void ElsaOnTheCoast(const DepthMap& grib_snow, DepthMap& new_dm);
 
 protected:
-    float val[n_iLon][n_iLat] = {0};
+    float val_[n_iLon][n_iLat] = {};
 
 public:
     DepthMap() { log_msg("DepthMap created: %p", this); }
     ~DepthMap() { log_msg("DepthMap destoyed: %p", this); }
-    float Get(float lon, float lat) const;
-    float GetIdx(int iLon, int iLat) const;
+    float get(float lon, float lat) const;
+    float get_idx(int iLon, int iLat) const;
     void load_csv(const char *csv_name);
 };
+
+
+extern std::tuple<float, float, float> SnowDepthToXplaneSnowNow(float depth); // snowNow, snowAreaWidth, iceNow
 
 extern CoastMap coast_map;
 extern DepthMap *grib_snod_map, *snod_map;
 extern int CreateSnowMapPng(const std::string& png_path);
 
-extern "C" void StartAsyncDownload(bool sys_time, int day, int month, int hour);
-extern "C" bool CheckAsyncDownload();
-extern "C" bool HttpGet(const char *url, FILE *f, int timeout);
-
-extern int sub_exec(const std::string& command);
 #endif

@@ -1,6 +1,7 @@
 //
-//    A contribution to https://github.com/xairline/xa-snow by zodiac1214
+//    X Airline Snow: show accumulated snow in X-Plane's world
 //
+//    Copyright (C) 2025  Zodiac1214
 //    Copyright (C) 2025  Holger Teutsch
 //
 //    This library is free software; you can redistribute it and/or
@@ -27,7 +28,7 @@
 #include "xa-snow.h"
 
 float
-DepthMap::GetIdx(int iLon, int iLat) const
+DepthMap::get_idx(int iLon, int iLat) const
 {
     // for lon we wrap around
     if (iLon >= n_iLon) {
@@ -43,12 +44,12 @@ DepthMap::GetIdx(int iLon, int iLat) const
         iLat = 0;
     }
 
-    return val[iLon][iLat];
+    return val_[iLon][iLat];
 }
 
 
 float
-DepthMap::Get(float lon, float lat) const
+DepthMap::get(float lon, float lat) const
 {
     // our snow world map is 3600x1801 [0,359.9]x[0,180.0]
     lat += 90.0;
@@ -70,10 +71,10 @@ DepthMap::Get(float lon, float lat) const
     float t = lat - static_cast<float>(iLat);
 
     //m.Logger.Infof("(%f, %f) -> (%d, %d) (%f, %f)", lon/10, lat/10 - 90, iLon, iLat, s, t)
-    float v00 = GetIdx(iLon, iLat);
-    float v10 = GetIdx(iLon + 1, iLat);
-    float v01 = GetIdx(iLon, iLat + 1);
-    float v11 = GetIdx(iLon + 1, iLat + 1);
+    float v00 = get_idx(iLon, iLat);
+    float v10 = get_idx(iLon + 1, iLat);
+    float v01 = get_idx(iLon, iLat + 1);
+    float v11 = get_idx(iLon + 1, iLat + 1);
 
 	// Lagrange polynoms: pij = is 1 on corner ij and 0 elsewhere
     float p00 = (1 - s) * (1 - t);
@@ -121,7 +122,7 @@ DepthMap::load_csv(const char *csv_name)
             continue;
         }
 
-        val[x][y] = value;
+        val_[x][y] = value;
         counter++;
     }
 
@@ -137,10 +138,10 @@ ElsaOnTheCoast(const DepthMap& grib_snow, DepthMap& new_dm)
 
     for (int i = 0; i < n_iLon; i++) {
         for (int j = 0; j < n_iLat; j++) {
-            float sd = grib_snow.GetIdx(i, j);
-            float sdn = new_dm.val[i][j]; // may already be set by inland extension earlier
+            float sd = grib_snow.get_idx(i, j);
+            float sdn = new_dm.val_[i][j]; // may already be set by inland extension earlier
             if (sd > sdn) { // always maximize
-                new_dm.val[i][j] = sd;
+                new_dm.val_[i][j] = sd;
             }
 
             const int max_step = 3; // to look for inland snow ~ 5 to 10 km / step
@@ -159,7 +160,7 @@ ElsaOnTheCoast(const DepthMap& grib_snow, DepthMap& new_dm)
                         continue;
                     }
 
-                    float tmp = grib_snow.GetIdx(ii, jj);
+                    float tmp = grib_snow.get_idx(ii, jj);
                     if (tmp > sd && tmp > min_sd) { // found snow
                         inland_dist = k;
                         inland_sd = tmp;
@@ -195,7 +196,7 @@ ElsaOnTheCoast(const DepthMap& grib_snow, DepthMap& new_dm)
                         if (y < 0) {
                             y = 0;
                         }
-                        new_dm.val[x][y] = inland_sd;
+                        new_dm.val_[x][y] = inland_sd;
                         n_extend++;
                     }
                 }

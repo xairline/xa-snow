@@ -1,6 +1,7 @@
 //
 //    A contribution to https://github.com/xairline/xa-snow by zodiac1214
 //
+//    Copyright (C) 2025  zodiac1214
 //    Copyright (C) 2025  Holger Teutsch
 //
 //    This library is free software; you can redistribute it and/or
@@ -62,7 +63,7 @@ CreateSnowMapPng(const std::string& png_path)
     if (true) {
         for (int i = 0; i < kWidth; i++) {
             for (int j = 0; j < kHeight; j++) {
-                float sd = grib_snod_map->GetIdx(i, j);
+                float sd = grib_snod_map->get_idx(i, j);
 
                 if (sd > 0.01f) {
                     const float sd_max = 0.10f;
@@ -82,8 +83,8 @@ CreateSnowMapPng(const std::string& png_path)
     // coastal snow
     for (int i = 0; i < kWidth; i++) {
         for (int j = 0; j < kHeight; j++) {
-            float sd = grib_snod_map->GetIdx(i, j);
-            float sdc = snod_map->GetIdx(i, j);
+            float sd = grib_snod_map->get_idx(i, j);
+            float sdc = snod_map->get_idx(i, j);
             if (sd != sdc) {
                 const int ofs = 100;
                 uint8_t rg = ofs + sdc * (255 - ofs);
