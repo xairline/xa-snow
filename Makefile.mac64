@@ -28,6 +28,7 @@ ifeq ($(UNAME_S),Darwin)
 
     CXXx=clang++ -target x86_64-apple-macos11
     CXXa=clang++ -target arm64-apple-macos11
+    AR=ar
 else
     PATH:=/osxcross/target/bin:$(PATH)
     CCx=o64-clang -mmacosx-version-min=12.0
@@ -35,6 +36,7 @@ else
 
     CXXx=o64-clang++ -mmacosx-version-min=12.0
     CXXa=oa64-clang++ -mmacosx-version-min=12.0
+    AR=llvm-ar
 endif
 
 DEFS=-DAPL=1 -fPIC -fno-stack-protector -fvisibility=hidden
@@ -54,10 +56,10 @@ all: $(TARGET) grib_test.mac
     $(shell [ -d $(OBJDIR) ] || mkdir -p $(OBJDIR))
 
 $(MYLIB_arm): $(OBJECTS_arm)
-	llvm-ar cr $@ $^
+	$(AR) cr $@ $^
 
 $(MYLIB_x86): $(OBJECTS_x86)
-	llvm-ar cr $@ $^
+	$(AR) cr $@ $^
 
 $(OBJDIR)/%.o_arm: %.cpp version.mak
 	$(CXXa) $(CXXFLAGS) -o $@ -c $<
