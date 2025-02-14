@@ -24,6 +24,7 @@ jobs:
           update: true
           install: >-
             mingw-w64-x86_64-gcc
+            make
 
       - uses: actions/checkout@v3
 
@@ -51,6 +52,7 @@ jobs:
         shell: bash
         run: |
           set -x
+          apt-get install libcurl4-openssl-dev
           export VERSION=${GITHUB_REF##*/}
           make -f Makefile.lin64
           ls -lR ./build
