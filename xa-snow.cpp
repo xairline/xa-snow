@@ -36,6 +36,7 @@
 #include "XPLMMenus.h"
 
 #include "airport.h"
+#include "depth_map.h"
 
 std::string xp_dir, plugin_dir, output_dir, pref_path;
 
@@ -54,8 +55,6 @@ static int pref_override, pref_rwy_ice, pref_historical, pref_autoupdate, pref_l
 static int override_item, rwy_ice_item, historical_item, autoupdate_item, limit_snow_item;
 
 static int loop_cnt;
-
-DepthMap *grib_snod_map, *snod_map;
 
 // Initialize static member variables
 static const std::vector<float> snowDepthTab     = {0.01f, 0.02f, 0.03f, 0.05f, 0.10f, 0.20f, 0.25f};
@@ -211,6 +210,10 @@ FlightLoopCb([[maybe_unused]] float inElapsedSinceLastCall,
         return 5.0f;
 
     loop_cnt++;
+    if (snod_map == nullptr) {
+        log_msg("... waiting for snow map");
+        return 5.0f;
+    }
 
     // throttle computations
     if (loop_cnt % 8 == 0) {
@@ -299,8 +302,6 @@ XPluginStart(char *out_name, char *out_sig, char *out_desc)
     CollectAirports(xp_dir);
 
     coast_map.load(plugin_dir);
-    grib_snod_map = new DepthMap();
-    snod_map = new DepthMap();
 
     // build menues
     XPLMMenuID menu = XPLMFindPluginsMenu();
@@ -335,6 +336,7 @@ XPluginStop(void)
 PLUGIN_API int
 XPluginEnable(void)
 {
+    loop_cnt = 0;   // reinit snow download
     return 1;
 }
 
@@ -342,6 +344,7 @@ PLUGIN_API void
 XPluginDisable(void)
 {
     SavePrefs();
+    snod_map = nullptr;
 }
 
 PLUGIN_API void

@@ -31,6 +31,24 @@
 #include <stdexcept>
 
 #include "xa-snow.h"
+#include "depth_map.h"
+
+// A note on async processing:
+// Everything is synchronously fired by the flightloop so we don't need mutexes
+
+// these 2 variables are owned and written by the main (= flightloop) thread
+static bool download_active;
+std::unique_ptr<DepthMap> snod_map;
+
+// use of this variable is alternate
+// If download_active:
+//  true:  written by the download thread
+//  false: read and written by the main thread
+
+// variable under system control
+std::unique_ptr<DepthMap> new_snod_map;
+
+static std::future<bool> download_future;
 
 // in:  user specified time
 // out: url, cycle time, cycle num
@@ -192,10 +210,6 @@ RemoveOldGribFiles(std::string file_to_keep)
     }
 }
 
-// everything is synchronously fired by the flightloop so we don't need mutexes
-static bool download_active;
-static std::future<bool> download_future;
-
 static const char *wgrib2 =
 #if IBM == 1
 "/WIN32wgrib2.exe";
@@ -233,14 +247,18 @@ DownloadAndProcessGribFile(bool sys_time, int month, int day, int hour)
     } else
         log_msg("Using existing snod_csv file '%s'", snod_csv_name);
 
+    // create new snow map
+    std::unique_ptr<DepthMap> grib_snod_map = std::make_unique<DepthMap>();
+    new_snod_map = std::make_unique<DepthMap>();
+
     grib_snod_map->load_csv(snod_csv_name);
-    ElsaOnTheCoast(*grib_snod_map, *snod_map);
-    CreateSnowMapPng("snow_depth.png");
+    ElsaOnTheCoast(*grib_snod_map, *new_snod_map);
+    CreateSnowMapPng(*grib_snod_map, *new_snod_map, "snow_depth.png");
     return true;
 }
 
 static bool
-DownloadAndProcess(bool sys_time, int month, int day, int hour)
+AsyncDownloadAndProcess(bool sys_time, int month, int day, int hour)
 {
     for (int i = 0; i < 3; i++) {
         bool res = DownloadAndProcessGribFile(sys_time, month, day, hour);
@@ -256,6 +274,10 @@ DownloadAndProcess(bool sys_time, int month, int day, int hour)
     return false;
 }
 
+// --------------------------------------------------------------------------------
+// Logically these routines belong to xa-snow.cpp but that would create a reference
+// to XPML_64 for grib_test.cpp so we leave them here
+
 // start download in the background
 void
 StartAsyncDownload(bool sys_time, int month, int day, int hour)
@@ -264,11 +286,13 @@ StartAsyncDownload(bool sys_time, int month, int day, int hour)
         log_msg("Download is already in progress, request ignored");
     }
 
-    download_future = std::async(std::launch::async, DownloadAndProcess, sys_time, month, day, hour);
+    download_future = std::async(std::launch::async, AsyncDownloadAndProcess, sys_time, month, day, hour);
     download_active = true;
 }
 
-// return true if do
+//
+// Check for download and activate the new map
+// return true if download is still in progress
 bool
 CheckAsyncDownload()
 {
@@ -281,5 +305,6 @@ CheckAsyncDownload()
     download_active = false;
     bool res = download_future.get();
     log_msg("Download status: %d", res);
+    snod_map = std::move(new_snod_map);     // activate the new map
     return true;
 }

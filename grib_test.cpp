@@ -33,7 +33,6 @@
 std::string xp_dir;
 std::string plugin_dir;
 std::string output_dir;
-DepthMap *grib_snod_map, *snod_map;
 
 static void
 flightloop_emul()
@@ -52,9 +51,6 @@ int main()
     output_dir = ".";
 
     coast_map.load(plugin_dir);
-
-    grib_snod_map = new DepthMap();
-    snod_map = new DepthMap();
 
     StartAsyncDownload(true, 0, 0, 0);
     flightloop_emul();

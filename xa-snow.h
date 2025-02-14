@@ -25,6 +25,7 @@
 #include <string>
 #include <tuple>
 #include <numbers>
+#include <memory>
 
 #define XPLM200
 #define XPLM210
@@ -73,30 +74,13 @@ struct CoastMap {
     std::tuple<bool, int, int, int> is_coast(int i, int j); // -> yes_no, dir_x, dir_y, grid_angle
 };
 
-// depth map of the world in 0.1° resolution
-static constexpr int n_iLon = 3600;
-static constexpr int n_iLat = 1801;
-
-
-class DepthMap {
-    friend void ElsaOnTheCoast(const DepthMap& grib_snow, DepthMap& new_dm);
-
-protected:
-    float val_[n_iLon][n_iLat] = {};
-
-public:
-    DepthMap() { log_msg("DepthMap created: %p", this); }
-    ~DepthMap() { log_msg("DepthMap destoyed: %p", this); }
-    float get(float lon, float lat) const;
-    float get_idx(int iLon, int iLat) const;
-    void load_csv(const char *csv_name);
-};
-
+class DepthMap;
+extern std::unique_ptr<DepthMap> snod_map, new_snod_map;
 
 extern std::tuple<float, float, float> SnowDepthToXplaneSnowNow(float depth); // snowNow, snowAreaWidth, iceNow
 
 extern CoastMap coast_map;
-extern DepthMap *grib_snod_map, *snod_map;
-extern int CreateSnowMapPng(const std::string& png_path);
+extern int CreateSnowMapPng(const DepthMap& grib_snod_map, const DepthMap& snod_map,
+                            const std::string& png_path);
 
 #endif

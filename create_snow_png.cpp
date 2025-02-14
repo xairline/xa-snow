@@ -25,6 +25,8 @@
 #include <string>
 
 #include "xa-snow.h"
+#include "depth_map.h"
+
 #include <spng.h> // For image processing, include after xa-snow.h
 
 
@@ -43,7 +45,7 @@ int xlate(int i) {
 }
 
 int
-CreateSnowMapPng(const std::string& png_path)
+CreateSnowMapPng(const DepthMap& grib_snod_map, const DepthMap& snod_map, const std::string& png_path)
 {
     auto img = std::make_unique<uint32_t[]>(kWidth * kHeight);
 
@@ -63,7 +65,7 @@ CreateSnowMapPng(const std::string& png_path)
     if (true) {
         for (int i = 0; i < kWidth; i++) {
             for (int j = 0; j < kHeight; j++) {
-                float sd = grib_snod_map->get_idx(i, j);
+                float sd = grib_snod_map.get_idx(i, j);
 
                 if (sd > 0.01f) {
                     const float sd_max = 0.10f;
@@ -83,8 +85,8 @@ CreateSnowMapPng(const std::string& png_path)
     // coastal snow
     for (int i = 0; i < kWidth; i++) {
         for (int j = 0; j < kHeight; j++) {
-            float sd = grib_snod_map->get_idx(i, j);
-            float sdc = snod_map->get_idx(i, j);
+            float sd = grib_snod_map.get_idx(i, j);
+            float sdc = snod_map.get_idx(i, j);
             if (sd != sdc) {
                 const int ofs = 100;
                 uint8_t rg = ofs + sdc * (255 - ofs);

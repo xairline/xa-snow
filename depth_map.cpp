@@ -26,6 +26,10 @@
 #include <cmath>
 
 #include "xa-snow.h"
+#include "depth_map.h"
+
+
+int DepthMap::seqno_base_;
 
 float
 DepthMap::get_idx(int iLon, int iLat) const
@@ -136,8 +140,8 @@ ElsaOnTheCoast(const DepthMap& grib_snow, DepthMap& new_dm)
     const float min_sd = 0.02f; // only go higher than this snow depth
     int n_extend = 0;
 
-    for (int i = 0; i < n_iLon; i++) {
-        for (int j = 0; j < n_iLat; j++) {
+    for (int i = 0; i < DepthMap::n_iLon; i++) {
+        for (int j = 0; j < DepthMap::n_iLat; j++) {
             float sd = grib_snow.get_idx(i, j);
             float sdn = new_dm.val_[i][j]; // may already be set by inland extension earlier
             if (sd > sdn) { // always maximize
@@ -181,17 +185,17 @@ ElsaOnTheCoast(const DepthMap& grib_snow, DepthMap& new_dm)
                         }
                         int x = i + k * dir_x;
                         int y = j + k * dir_y;
-                        if (x >= n_iLon) {
-                            x -= n_iLon;
+                        if (x >= DepthMap::n_iLon) {
+                            x -= DepthMap::n_iLon;
                         }
                         if (x < 0) {
-                            x += n_iLon;
+                            x += DepthMap::n_iLon;
                         }
 
                         // the poles are tricky so we just clamp
                         // anyway it does not make a difference
-                        if (y >= n_iLat) {
-                            y = n_iLat - 1;
+                        if (y >= DepthMap::n_iLat) {
+                            y = DepthMap::n_iLat - 1;
                         }
                         if (y < 0) {
                             y = 0;
