@@ -47,8 +47,7 @@ XPL_DIR=/e/X-Plane-12-test
 
 $(TARGET): $(MYLIB)
 	$(LD) -o $(TARGET) $(OBJDIR)/xa-snow.o $(LIBS) $(LDFLAGS)
-	[ -d $(XPL_DIR)/Resources/plugins/XA-snow ] && cp -p build/win.xpl $(XPL_DIR)/Resources/plugins/XA-snow/.
-	true
+	if [ -d $(XPL_DIR)/Resources/plugins/XA-snow ]; then cp -p build/win.xpl $(XPL_DIR)/Resources/plugins/XA-snow/.; fi
 
 grib_test.exe: grib_test.cpp log_msg.cpp $(MYLIB)
 	$(CXX) $(CXXFLAGS) -DLOCAL_DEBUGSTRING -o $@ grib_test.cpp log_msg.cpp  $(MYLIB) -lwinhttp -lz
