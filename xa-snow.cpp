@@ -139,6 +139,7 @@ MenuCB([[maybe_unused]] void *menu_ref, void *item_ref)
         item = rwy_ice_item;
     } else if (pref == &pref_historical) {
         item = historical_item;
+        loop_cnt = 0;   // reload snow
     } else if (pref == &pref_autoupdate) {
         item = autoupdate_item;
     } else if (pref == &pref_limit_snow) {
@@ -191,11 +192,15 @@ FlightLoopCb([[maybe_unused]] float inElapsedSinceLastCall,
         if (!InitPrivateDrefs())
             return 0; // Bye, if we don't have them by now we will never get them
 
-        bool sys_time = (XPLMGetDatai(sys_time_dr) == 1);
-        int day = XPLMGetDatai(sim_current_day_dr);
-        int month = XPLMGetDatai(sim_current_month_dr);
-        int hour = XPLMGetDatai(sim_local_hours_dr);
-        StartAsyncDownload(sys_time, month, day, hour);
+        if (!pref_historical)
+            StartAsyncDownload(true, 0, 0, 0);
+        else {
+            bool sys_time = (XPLMGetDatai(sys_time_dr) == 1);
+            int day = XPLMGetDatai(sim_current_day_dr);
+            int month = XPLMGetDatai(sim_current_month_dr);
+            int hour = XPLMGetDatai(sim_local_hours_dr);
+            StartAsyncDownload(sys_time, month, day, hour);
+        }
 
         // set to known "no snow" values
         snow_depth = 0.0f;
