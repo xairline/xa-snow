@@ -196,7 +196,7 @@ FlightLoopCb([[maybe_unused]] float inElapsedSinceLastCall,
         int day = XPLMGetDatai(sim_current_day_dr);
         int month = XPLMGetDatai(sim_current_month_dr);
         int hour = XPLMGetDatai(sim_local_hours_dr);
-        StartAsyncDownload(sys_time, day, month, hour);
+        StartAsyncDownload(sys_time, month, day, hour);
 
         // set to known "no snow" values
         snow_depth = 0.0f;

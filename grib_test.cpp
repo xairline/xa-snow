@@ -62,15 +62,15 @@ int main()
     std::cout << "-------------------------------------------------\n\n";
 
 #if 0
-    StartAsyncDownload(false, 10, 2, 21);
+    StartAsyncDownload(false, 2, 10, 21);
     flightloop_emul();
     std::cout << "-------------------------------------------------\n\n";
 
-    StartAsyncDownload(false, 20, 2, 22);
+    StartAsyncDownload(false, 2, 20, 22);
     flightloop_emul();
     std::cout << "-------------------------------------------------\n\n";
 
-    StartAsyncDownload(false, 20, 1, 10);
+    StartAsyncDownload(false, 1, 20, 10);
     flightloop_emul();
 #endif
 

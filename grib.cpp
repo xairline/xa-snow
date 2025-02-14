@@ -83,9 +83,9 @@ GetDownloadUrl(bool sys_time, const std::tm utime_utc)
 }
 
 static std::string
-DownloadGribFile(bool sys_time, int day, int month, int hour)
+DownloadGribFile(bool sys_time, int month, int day, int hour)
 {
-    log_msg("downloadGribFile: Using system time: %d, month: %d, day: %d, hour: %d", sys_time, day, month, hour);
+    log_msg("downloadGribFile: Using system time: %d, month: %d, day: %d, hour: %d", sys_time, month, day, hour);
 
     std::time_t now = std::time(nullptr);
     std::tm now_tm = *std::localtime(&now);
@@ -207,12 +207,12 @@ static const char *wgrib2 =
 
 // Runs async
 static bool
-DownloadAndProcessGribFile(bool sys_time, int day, int month, int hour)
+DownloadAndProcessGribFile(bool sys_time, int month, int day, int hour)
 {
     const char *snod_csv_name = std::getenv("USE_SNOD_CSV");
 
     if (NULL == snod_csv_name) {
-        std::string grib_file_path = DownloadGribFile(sys_time, day, month, hour);
+        std::string grib_file_path = DownloadGribFile(sys_time, month, day, hour);
         if (grib_file_path.size() == 0)
             return false;
 
@@ -240,7 +240,7 @@ DownloadAndProcessGribFile(bool sys_time, int day, int month, int hour)
 }
 
 static bool
-DownloadAndProcess(bool sys_time, int day, int month, int hour)
+DownloadAndProcess(bool sys_time, int month, int day, int hour)
 {
     for (int i = 0; i < 3; i++) {
         bool res = DownloadAndProcessGribFile(sys_time, month, day, hour);
@@ -258,13 +258,13 @@ DownloadAndProcess(bool sys_time, int day, int month, int hour)
 
 // start download in the background
 void
-StartAsyncDownload(bool sys_time, int day, int month, int hour)
+StartAsyncDownload(bool sys_time, int month, int day, int hour)
 {
     if (download_active) {
         log_msg("Download is already in progress, request ignored");
     }
 
-    download_future = std::async(std::launch::async, DownloadAndProcess, sys_time, day, month, hour);
+    download_future = std::async(std::launch::async, DownloadAndProcess, sys_time, month, day, hour);
     download_active = true;
 }
 
