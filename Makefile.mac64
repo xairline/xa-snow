@@ -51,7 +51,7 @@ LIBS= $(MYLIB) -F $(SDK)/Libraries/Mac -framework XPLM -lcurl -lz
 #    $(foreach var,$(.VARIABLES),$(info $(var) = $($(var))))
 
 all: $(TARGET) grib_test.mac
-    $(shell [ -d $(OBJDIR) ] || mkdir $(OBJDIR))
+    $(shell [ -d $(OBJDIR) ] || mkdir -p $(OBJDIR))
 
 $(MYLIB_arm): $(OBJECTS_arm)
 	llvm-ar cr $@ $^
