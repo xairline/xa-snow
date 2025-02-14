@@ -1,5 +1,5 @@
 SDK=SDK
-INCLUDES=-I. -Iservices -I$(SDK)/CHeaders/XPLM -I$(SDK)/CHeaders/Widgets
+INCLUDES=-I. -I$(SDK)/CHeaders/XPLM -I$(SDK)/CHeaders/Widgets
 
 # platform independent defines
 DEFINES=-DSPNG_STATIC
