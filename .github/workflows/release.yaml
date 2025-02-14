@@ -24,7 +24,6 @@ jobs:
           update: true
           install: >-
             mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-go
 
       - uses: actions/checkout@v3
 
@@ -32,7 +31,7 @@ jobs:
         shell: msys2 {0}
         run: |
             export VERSION=${GITHUB_REF##*/}
-            sh ./build_win_msys2.sh
+            make -f Makefile.mgw64
             ls -lR ./build
 
       - name: Upload Build Artifact
@@ -48,34 +47,12 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.21.5' # The Go version to download (if necessary) and use.
-
-      - uses: actions/cache@v4
-        with:
-          path: ~/go/pkg/mod
-          key: go-mod-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            go-mod-
-
-      # - name: Install golang
-        # shell: bash
-        # run: |
-          # sudo apt-get update
-          # sudo apt-get -y install golang-go
-
       - name: Build Linux binaries
         shell: bash
         run: |
           set -x
-          # ubuntu seems to have a different versioning scheme for go and
-          # the existing go.mod may lead to an error
-          rm go.mod
-          go mod init github.com/xairline/xa-snow
-          go mod tidy
           export VERSION=${GITHUB_REF##*/}
-          bash ./build_lin.sh
+          make -f Makefile.lin64
           ls -lR ./build
 
       - name: Upload Build Artifact
@@ -97,22 +74,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.21.5' # The Go version to download (if necessary) and use.
-
-      - uses: actions/cache@v4
-        with:
-          path: ~/go/pkg/mod
-          key: go-mod-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            go-mod-
-
       - run: |
           set -x
-          go mod tidy
           export VERSION=${GITHUB_REF##*/}
-          sh ./build_mac.sh
+          make -f Makefile.mac64
 
       - name: Download Build Artifacts
         uses: actions/download-artifact@v4
