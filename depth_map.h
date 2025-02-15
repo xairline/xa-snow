@@ -24,22 +24,21 @@
 
 class DepthMap {
     // depth map of the world in 0.1° resolution
-    static constexpr int n_iLon = 3600;
-    static constexpr int n_iLat = 1801;
-
-    friend void ElsaOnTheCoast(const DepthMap& grib_snow, DepthMap& new_dm);
+    static constexpr int kNlon = 3600;  // [0, 360)
+    static constexpr int kNlat = 1801;  // [-90, -90]
 
     static int seqno_base_;
     int seqno_;
 
 protected:
-    float val_[n_iLon][n_iLat] = {};
+    friend void ElsaOnTheCoast(const DepthMap& grib_snow, DepthMap& new_dm);
+    float val_[kNlon][kNlat] = {};
 
 public:
     DepthMap() : seqno_(++seqno_base_) { log_msg("DepthMap created: %d", seqno_); }
     ~DepthMap() { log_msg("DepthMap destroyed: %d", seqno_); }
     float get(float lon, float lat) const;
-    float get_idx(int iLon, int iLat) const;
+    float get_idx(int i_lon, int i_lat) const;
     void load_csv(const char *csv_name);
 };
 #endif

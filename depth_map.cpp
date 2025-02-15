@@ -32,23 +32,23 @@
 int DepthMap::seqno_base_;
 
 float
-DepthMap::get_idx(int iLon, int iLat) const
+DepthMap::get_idx(int i_lon, int i_lat) const
 {
     // for lon we wrap around
-    if (iLon >= n_iLon) {
-        iLon -= n_iLon;
-    } else if (iLon < 0) {
-        iLon += n_iLon;
+    if (i_lon >= kNlon) {
+        i_lon -= kNlon;
+    } else if (i_lon < 0) {
+        i_lon += kNlon;
     }
 
     // for lat we just confine, doesn't make a difference anyway
-    if (iLat >= n_iLat) {
-        iLat = n_iLat - 1;
-    } else if (iLat < 0) {
-        iLat = 0;
+    if (i_lat >= kNlat) {
+        i_lat = kNlat - 1;
+    } else if (i_lat < 0) {
+        i_lat = 0;
     }
 
-    return val_[iLon][iLat];
+    return val_[i_lon][i_lat];
 }
 
 
@@ -67,18 +67,18 @@ DepthMap::get(float lon, float lat) const
     lat *= 10;
 
     // index of tile is lower left corner
-    int iLon = static_cast<int>(lon);
-    int iLat = static_cast<int>(lat);
+    int i_lon = static_cast<int>(lon);
+    int i_lat = static_cast<int>(lat);
 
     // (s, t) coordinates of (lon, lat) within tile, s,t in [0,1]
-    float s = lon - static_cast<float>(iLon);
-    float t = lat - static_cast<float>(iLat);
+    float s = lon - static_cast<float>(i_lon);
+    float t = lat - static_cast<float>(i_lat);
 
-    //m.Logger.Infof("(%f, %f) -> (%d, %d) (%f, %f)", lon/10, lat/10 - 90, iLon, iLat, s, t)
-    float v00 = get_idx(iLon, iLat);
-    float v10 = get_idx(iLon + 1, iLat);
-    float v01 = get_idx(iLon, iLat + 1);
-    float v11 = get_idx(iLon + 1, iLat + 1);
+    //m.Logger.Infof("(%f, %f) -> (%d, %d) (%f, %f)", lon/10, lat/10 - 90, i_lon, i_lat, s, t)
+    float v00 = get_idx(i_lon, i_lat);
+    float v10 = get_idx(i_lon + 1, i_lat);
+    float v01 = get_idx(i_lon, i_lat + 1);
+    float v11 = get_idx(i_lon + 1, i_lat + 1);
 
 	// Lagrange polynoms: pij = is 1 on corner ij and 0 elsewhere
     float p00 = (1 - s) * (1 - t);
@@ -121,7 +121,7 @@ DepthMap::load_csv(const char *csv_name)
         // This example assumes the CSV contains all longitudes and latitudes
         int x = static_cast<int>(lon * 10);         // Adjust these calculations based on your data's range and resolution
         int y = static_cast<int>((lat + 90) * 10);  // Adjust for negative latitudes
-        if (x < 0 || x >= n_iLon || y < 0 || y > n_iLat) {
+        if (x < 0 || x >= kNlon || y < 0 || y >= kNlat) {
             log_msg("invalid csv line: '%s'", line.c_str());
             continue;
         }
@@ -140,8 +140,8 @@ ElsaOnTheCoast(const DepthMap& grib_snow, DepthMap& new_dm)
     const float min_sd = 0.02f; // only go higher than this snow depth
     int n_extend = 0;
 
-    for (int i = 0; i < DepthMap::n_iLon; i++) {
-        for (int j = 0; j < DepthMap::n_iLat; j++) {
+    for (int i = 0; i < DepthMap::kNlon; i++) {
+        for (int j = 0; j < DepthMap::kNlat; j++) {
             float sd = grib_snow.get_idx(i, j);
             float sdn = new_dm.val_[i][j]; // may already be set by inland extension earlier
             if (sd > sdn) { // always maximize
@@ -185,17 +185,17 @@ ElsaOnTheCoast(const DepthMap& grib_snow, DepthMap& new_dm)
                         }
                         int x = i + k * dir_x;
                         int y = j + k * dir_y;
-                        if (x >= DepthMap::n_iLon) {
-                            x -= DepthMap::n_iLon;
+                        if (x >= DepthMap::kNlon) {
+                            x -= DepthMap::kNlon;
                         }
                         if (x < 0) {
-                            x += DepthMap::n_iLon;
+                            x += DepthMap::kNlon;
                         }
 
                         // the poles are tricky so we just clamp
                         // anyway it does not make a difference
-                        if (y >= DepthMap::n_iLat) {
-                            y = DepthMap::n_iLat - 1;
+                        if (y >= DepthMap::kNlat) {
+                            y = DepthMap::kNlat - 1;
                         }
                         if (y < 0) {
                             y = 0;
