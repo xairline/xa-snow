@@ -24,6 +24,7 @@
 #include <fstream>
 #include <string>
 #include <cmath>
+#include <memory>
 
 #include "xa-snow.h"
 #include "depth_map.h"
@@ -134,18 +135,20 @@ DepthMap::load_csv(const char *csv_name)
     log_msg("Loading CSV file '%s': Done", csv_name);
 }
 
-void
-ElsaOnTheCoast(const DepthMap& grib_snow, DepthMap& new_dm)
+std::unique_ptr<DepthMap>
+DepthMap::extend_coastal_snow() const
 {
     const float min_sd = 0.02f; // only go higher than this snow depth
     int n_extend = 0;
 
+    std::unique_ptr<DepthMap> new_dm = std::make_unique<DepthMap>();
+
     for (int i = 0; i < DepthMap::kNlon; i++) {
         for (int j = 0; j < DepthMap::kNlat; j++) {
-            float sd = grib_snow.get_idx(i, j);
-            float sdn = new_dm.val_[i][j]; // may already be set by inland extension earlier
+            float sd = get_idx(i, j);
+            float sdn = new_dm->val_[i][j]; // may already be set by inland extension earlier
             if (sd > sdn) { // always maximize
-                new_dm.val_[i][j] = sd;
+                new_dm->val_[i][j] = sd;
             }
 
             const int max_step = 3; // to look for inland snow ~ 5 to 10 km / step
@@ -164,7 +167,7 @@ ElsaOnTheCoast(const DepthMap& grib_snow, DepthMap& new_dm)
                         continue;
                     }
 
-                    float tmp = grib_snow.get_idx(ii, jj);
+                    float tmp = get_idx(ii, jj);
                     if (tmp > sd && tmp > min_sd) { // found snow
                         inland_dist = k;
                         inland_sd = tmp;
@@ -200,7 +203,7 @@ ElsaOnTheCoast(const DepthMap& grib_snow, DepthMap& new_dm)
                         if (y < 0) {
                             y = 0;
                         }
-                        new_dm.val_[x][y] = inland_sd;
+                        new_dm->val_[x][y] = inland_sd;
                         n_extend++;
                     }
                 }
@@ -209,4 +212,5 @@ ElsaOnTheCoast(const DepthMap& grib_snow, DepthMap& new_dm)
     }
 
     log_msg("Extended coastal snow on %d grid points", n_extend);
+    return new_dm;
 }

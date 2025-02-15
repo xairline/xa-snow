@@ -30,8 +30,6 @@ class DepthMap {
     static int seqno_base_;
     int seqno_;
 
-protected:
-    friend void ElsaOnTheCoast(const DepthMap& grib_snow, DepthMap& new_dm);
     float val_[kNlon][kNlat] = {};
 
 public:
@@ -40,5 +38,6 @@ public:
     float get(float lon, float lat) const;
     float get_idx(int i_lon, int i_lat) const;
     void load_csv(const char *csv_name);
+    std::unique_ptr<DepthMap> extend_coastal_snow() const;
 };
 #endif
